@@ -331,7 +331,6 @@
         @for($w = 1; $w <= 5; $w++)
             @php
                 $wData = $weeksData[$w];
-                $items = $wData['items'];
                 $weekKm = $wData['total_km'];
                 $calWeek = $wData['calendar_week'];
             @endphp
@@ -363,128 +362,8 @@
                     </div>
                 </div>
 
-                <!-- Tabuľka jázd v danom týždni -->
-                @if($items->count() > 0)
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-50 text-slate-500 text-[11px] font-bold uppercase border-b border-slate-200">
-                                    <th class="p-3 w-28">1. Dátum</th>
-                                    <th class="p-3">2. Miesto rokovania (Trasa cesty)</th>
-                                    <th class="p-3 w-40 text-center">Časový harmonogram</th>
-                                    <th class="p-3">6. Stručný opis plánovanej cesty (Účel)</th>
-                                    <th class="p-3 w-24 text-center">7. Doprava</th>
-                                    <th class="p-3 w-24 text-right">8. Odhad km</th>
-                                    @if(in_array($plan->status, ['DRAFT', 'RETURNED']))
-                                        <th class="p-3 w-16 text-center">Akcie</th>
-                                    @endif
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 text-xs">
-                                @php
-                                    $itemsByDate = $items->groupBy('trip_date');
-                                @endphp
-                                @foreach($items as $item)
-                                    @php
-                                        $dests = array_filter(array_map('trim', preg_split('/[,;+]+/', $item->destination_location)));
-                                        $isMultiLoc = count($dests) > 1;
-                                        $sameDayCount = $itemsByDate[$item->trip_date]->count();
-                                    @endphp
-                                    <tr class="hover:bg-slate-50/80 transition">
-                                        <td class="p-3 font-bold text-slate-900 whitespace-nowrap">
-                                            {{ date('d.m.Y', strtotime($item->trip_date)) }}<br>
-                                            <span class="text-[10px] text-slate-400 font-normal">{{ \Carbon\Carbon::parse($item->trip_date)->translatedFormat('l') }}</span>
-                                            @if($sameDayCount > 1)
-                                                <span class="block mt-1 px-1.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-200 rounded text-[9px] font-bold w-fit">
-                                                    ⚡ Cesta v daný deň
-                                                </span>
-                                            @endif
-                                        </td>
-                                        <td class="p-3">
-                                            @if($isMultiLoc)
-                                                <div class="space-y-1">
-                                                    <div class="flex items-center space-x-1.5">
-                                                        <span class="text-[9px] font-black px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded">
-                                                            🛣️ OKRUŽNÁ TRASA ({{ count($dests) }} LOKALITY)
-                                                        </span>
-                                                    </div>
-                                                    <div class="text-xs text-slate-800 font-medium flex flex-wrap items-center gap-1">
-                                                        <span class="text-slate-600">{{ $item->departure_location }}</span>
-                                                        @foreach($dests as $d)
-                                                            <span class="text-blue-500 font-bold">&rarr;</span>
-                                                            <span class="font-bold text-blue-900 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">📍 {{ $d }}</span>
-                                                        @endforeach
-                                                        <span class="text-blue-500 font-bold">&rarr;</span>
-                                                        <span class="text-slate-600 font-medium">{{ $item->departure_location }}</span>
-                                                    </div>
-                                                    @if($item->targetApz)
-                                                        <div class="text-[10px] text-slate-500 font-normal">APZ tím: {{ $item->targetApz->full_name }}</div>
-                                                    @endif
-                                                </div>
-                                            @else
-                                                <div class="space-y-1">
-                                                    <div class="flex items-center space-x-1.5 text-xs">
-                                                        <span class="text-[9px] font-black px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded">TAM</span>
-                                                        <span class="text-slate-600">{{ $item->departure_location }}</span>
-                                                        <span class="text-slate-400">&rarr;</span>
-                                                        <span class="font-bold text-slate-900">📍 {{ $item->destination_location }}</span>
-                                                    </div>
-                                                    <div class="flex items-center space-x-1.5 text-xs">
-                                                        <span class="text-[9px] font-black px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded">SPÄŤ</span>
-                                                        <span class="text-slate-600">📍 {{ $item->destination_location }}</span>
-                                                        <span class="text-slate-400">&rarr;</span>
-                                                        <span class="text-slate-700">{{ $item->departure_location }}</span>
-                                                    </div>
-                                                    @if($item->targetApz)
-                                                        <div class="text-[10px] text-slate-500 font-normal">APZ: {{ $item->targetApz->full_name }}</div>
-                                                    @endif
-                                                </div>
-                                            @endif
-                                        </td>
-                                        <td class="p-3 text-center whitespace-nowrap">
-                                            <div class="space-y-1 font-mono text-[11px]">
-                                                <div class="text-blue-900 font-semibold bg-blue-50/70 px-2 py-0.5 rounded border border-blue-100" title="Odchod z východiskovej → Príchod do cieľovej">
-                                                    <span class="text-[9px] text-blue-600 font-bold font-sans uppercase">Tam:</span>
-                                                    {{ $item->departure_time ?: '08:00' }} &rarr; {{ $item->arrival_at_dest_time ?: '09:00' }}
-                                                </div>
-                                                <div class="text-indigo-900 bg-indigo-50/70 px-2 py-0.5 rounded border border-indigo-100" title="Odchod z cieľovej → Príchod do východiskovej späť">
-                                                    <span class="text-[9px] text-indigo-600 font-bold font-sans uppercase">Späť:</span>
-                                                    {{ $item->departure_from_dest_time ?: '14:00' }} &rarr; {{ $item->arrival_time ?: '15:00' }}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="p-3 text-slate-700 max-w-md">
-                                            {{ $item->purpose }}
-                                        </td>
-                                        <td class="p-3 text-center font-bold text-slate-700">
-                                            <span class="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[11px]">
-                                                {{ $item->transport_mode }}
-                                            </span>
-                                        </td>
-                                        <td class="p-3 text-right font-black text-blue-700 whitespace-nowrap">
-                                            {{ number_format($item->estimated_km, 1) }} km
-                                        </td>
-                                        @if(in_array($plan->status, ['DRAFT', 'RETURNED']))
-                                            <td class="p-3 text-center whitespace-nowrap">
-                                                <form action="{{ route('travel.delete_item', $item->id) }}" method="POST" onsubmit="return confirm('Naozaj chcete vymazať túto cestu?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Odstrániť jazdu">
-                                                        🗑️
-                                                    </button>
-                                                </form>
-                                            </td>
-                                        @endif
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <div class="p-6 text-center text-slate-400 text-xs">
-                        V {{ $w }}. týždni ({{ $calWeek }}. kalendárny týždeň) zatiaľ nie sú naplánované žiadne pracovné cesty.
-                    </div>
-                @endif
+                <!-- Tabuľka týždňa v tvare matice (dvojice riadkov Odchod / Príchod) -->
+                @include('travel._week_matrix', ['wData' => $wData])
 
                 <!-- Päta týždenného plánu: Klauzula, Spracoval/a, ZFK & Samostatný Export do PDF -->
                 <div class="p-4 bg-slate-50 border-t border-slate-200 space-y-3">
@@ -541,6 +420,107 @@
     </div>
 
 </div>
+
+<datalist id="planPlaces">
+    @foreach($commonDestinations as $dest)
+        <option value="{{ $dest }}"></option>
+    @endforeach
+</datalist>
+
+<!-- Editor týždňa v tvare matice: pridanie/odstránenie úseku, výpočet km -->
+<script>
+    function planRenumber(tbody) {
+        tbody.querySelectorAll('tr.seg-odchod').forEach((row, idx) => {
+            const pair = [row, row.nextElementSibling];
+            pair.forEach(r => r.querySelectorAll('[name^="segments["]').forEach(el => {
+                el.name = el.name.replace(/segments\[\d+\]/, 'segments[' + idx + ']');
+            }));
+        });
+    }
+
+    function planAddSegment(btn) {
+        const tbody = btn.closest('tbody');
+        const formId = tbody.dataset.form;
+        const lastTo = [...tbody.querySelectorAll('.seg-to')].pop();
+        const firstFrom = tbody.querySelector('.seg-from');
+        const from = lastTo ? lastTo.value : @json($kapz->scope);
+        const back = firstFrom ? firstFrom.value : '';
+        const modes = @json(array_keys($transportModes));
+        const purposes = @json($officialPurposes);
+        const opt = (v, sel) => `<option value="${v}" ${v === sel ? 'selected' : ''}>${v}</option>`;
+        const inp = (name, value = '', extra = '') => `<input form="${formId}" name="segments[99][${name}]" value="${value}" ${extra} class="w-full p-1 border border-slate-200 rounded">`;
+
+        const odchod = document.createElement('tr');
+        odchod.className = 'segment-row seg-odchod';
+        odchod.innerHTML = `<td class="p-1 pl-2 text-slate-500 w-14">Odchod</td>
+            <td class="p-1">${inp('from_place', from, 'list="planPlaces"').replace('class="', 'class="seg-from ')}</td>
+            <td class="p-1">${inp('departure_time', '', 'placeholder="8:00"')}</td>
+            <td class="p-1"><select form="${formId}" name="segments[99][transport_mode]" class="w-full p-1 border border-slate-200 rounded">${modes.map(m => opt(m, 'AUV')).join('')}</select></td>
+            <td class="p-1 whitespace-nowrap"><input form="${formId}" name="segments[99][km]" type="number" step="0.1" min="0" value="0" class="seg-km w-16 p-1 border border-slate-200 rounded text-right"> <button type="button" class="text-blue-600" onclick="planCalcKm(this)">↻</button></td>
+            <td class="p-1"><select form="${formId}" name="segments[99][purpose]" class="w-full p-1 border border-slate-200 rounded"><option value=""></option>${purposes.map(p => opt(p, '')).join('')}</select></td>
+            <td class="p-1">${inp('description')}</td>
+            <td class="p-1">${inp('accommodation', 'Nie')}</td>
+            <td class="p-1">${inp('companions', 'Nie')}</td>
+            <td class="p-1 text-right" rowspan="2"><button type="button" class="px-1.5 py-0.5 text-rose-600 hover:bg-rose-50 rounded" onclick="planRemoveSegment(this)">✕</button></td>`;
+        const prichod = document.createElement('tr');
+        prichod.className = 'segment-row seg-prichod border-b border-slate-100';
+        prichod.innerHTML = `<td class="p-1 pl-2 text-slate-500">Príchod</td>
+            <td class="p-1">${inp('to_place', from === back ? '' : back, 'list="planPlaces"').replace('class="', 'class="seg-to ')}</td>
+            <td class="p-1">${inp('arrival_time', '', 'placeholder="9:00"')}</td><td colspan="6"></td>`;
+
+        // Prvý úsek dňa: nahradí riadok „bez cesty“, dátum ostáva v prvom stĺpci.
+        const empty = tbody.querySelector('tr:not(.segment-row):not(.day-actions)');
+        if (empty && !tbody.querySelector('.seg-odchod')) {
+            const dateCell = empty.firstElementChild;
+            dateCell.rowSpan = 2;
+            dateCell.classList.add('align-top');
+            odchod.prepend(dateCell);
+            const note = empty.querySelector('input[name="day_note"]');
+            empty.remove();
+            if (note) {
+                note.placeholder = 'Poznámka dňa (nepovinné)';
+                note.classList.add('w-56', 'mr-2');
+                note.classList.remove('w-full');
+                tbody.querySelector('.day-actions td').prepend(note);
+            }
+        } else {
+            const dateCell = tbody.querySelector('tr.seg-odchod > td:first-child[rowspan]');
+            if (dateCell) dateCell.rowSpan += 2;
+        }
+        tbody.querySelector('.day-actions').before(odchod, prichod);
+        planRenumber(tbody);
+    }
+
+    function planRemoveSegment(btn) {
+        const odchod = btn.closest('tr');
+        const tbody = odchod.closest('tbody');
+        const dateCell = odchod.querySelector(':scope > td:first-child[rowspan]');
+        const next = odchod.nextElementSibling.nextElementSibling;
+        if (dateCell && next && next.classList.contains('seg-odchod')) {
+            dateCell.rowSpan -= 2;
+            next.prepend(dateCell);
+        } else {
+            const first = tbody.querySelector('tr.seg-odchod > td:first-child[rowspan]');
+            if (first && first !== dateCell) first.rowSpan -= 2;
+        }
+        odchod.nextElementSibling.remove();
+        odchod.remove();
+        planRenumber(tbody);
+    }
+
+    function planCalcKm(btn) {
+        const odchod = btn.closest('tr');
+        const from = odchod.querySelector('.seg-from').value;
+        const to = odchod.nextElementSibling.querySelector('.seg-to').value;
+        const km = odchod.querySelector('.seg-km');
+        if (!from || !to) return;
+        btn.textContent = '…';
+        fetch(`{{ route('travel.calculate_distance') }}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
+            .then(r => r.json())
+            .then(d => { if (d.success) km.value = d.distance_km; })
+            .finally(() => btn.textContent = '↻');
+    }
+</script>
 
 <!-- Pomocné JavaScripty pre výber viacerých obcí, okružné trasy a výpočet km -->
 <script>

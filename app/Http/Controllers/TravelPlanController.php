@@ -16,7 +16,7 @@ use Carbon\Carbon;
 
 class TravelPlanController extends Controller
 {
-    public function index(Request $request, TravelWorkflowService $workflowService)
+    public function index(Request $request, TravelWorkflowService $workflowService, TravelSegmentService $segmentService)
     {
         $user = Auth::user();
         $periods = ReportingPeriod::orderBy('year', 'desc')->orderBy('month', 'desc')->get();
@@ -58,16 +58,13 @@ class TravelPlanController extends Controller
             $plan->update(['km_limit' => $limit]);
         }
 
-        $plan->load('items.targetApz');
+        $plan->load('items.targetApz', 'items.segments');
 
         // Retrieve assigned APZs & communities for 1-click selection
         $firstDayOfMonth = "{$period->year}-" . str_pad($period->month, 2, '0', STR_PAD_LEFT) . "-01";
         $assignedApzs = $kapz->assignedApzsForDate($firstDayOfMonth);
         if ($assignedApzs->isEmpty()) {
             $assignedApzs = ApzProfile::whereIn('id', $kapz->assignments()->pluck('apz_id'))->get();
-        }
-        if ($assignedApzs->isEmpty()) {
-            $assignedApzs = ApzProfile::take(10)->get();
         }
 
         $assignedVillages = $assignedApzs->pluck('scope')->filter()->unique()->values()->all();
@@ -88,18 +85,8 @@ class TravelPlanController extends Controller
             'Úrad práce, sociálnych vecí a rodiny (ÚPSVaR)',
         ])->merge($assignedVillages)->filter()->unique()->values()->all();
 
-        // Weeks breakdown (1 to 5)
-        $weeksData = [];
-        for ($w = 1; $w <= 5; $w++) {
-            $calWeek = $plan->getCalendarWeek($w);
-            $items = $plan->items->where('week_number', $w)->sortBy('trip_date');
-            $weeksData[$w] = [
-                'week_number' => $w,
-                'calendar_week' => $calWeek,
-                'items' => $items,
-                'total_km' => $items->sum('estimated_km'),
-            ];
-        }
+        // Týždenné bloky ako v hárku „Plán pracovných ciest“ (5 × kalendárny týždeň)
+        $weeksData = $segmentService->weeksFor($plan);
 
         $totalKm = $plan->total_km;
         $kmLimit = (float) $plan->km_limit;
@@ -108,11 +95,8 @@ class TravelPlanController extends Controller
         $isOverLimit = $kmLimit > 0 && $totalKm > $kmLimit;
 
         $officialPurposes = $workflowService->getOfficialPurposes();
-        $transportModes = [
-            'AUV' => 'AUV (vlastné motorové vozidlo)',
-            'AAuto' => 'AAuto (služobné motorové vozidlo)',
-            'VHD' => 'VHD (verejná hromadná doprava)',
-        ];
+        $transportModes = TravelSegmentService::TRANSPORT_MODES;
+        $isEditable = in_array($plan->status, ['DRAFT', 'RETURNED'], true);
 
         return view('travel.index', compact(
             'plan',
@@ -129,7 +113,8 @@ class TravelPlanController extends Controller
             'kmPercentage',
             'isOverLimit',
             'officialPurposes',
-            'transportModes'
+            'transportModes',
+            'isEditable'
         ));
     }
 

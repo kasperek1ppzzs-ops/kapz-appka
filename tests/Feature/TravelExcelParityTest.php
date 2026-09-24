@@ -73,8 +73,10 @@ class TravelExcelParityTest extends TestCase
             'estimated_km' => 27.1,
         ]);
 
+        $fresh = $plan->fresh()->load(['kapz', 'reportingPeriod', 'items.targetApz', 'items.segments', 'reviewedBy']);
         $html = view('pdf.plan_pracovnych_ciest', [
-            'plan' => $plan->fresh()->load(['kapz', 'reportingPeriod', 'items.targetApz', 'reviewedBy']),
+            'plan' => $fresh,
+            'weeks' => app(\App\Services\TravelSegmentService::class)->weeksFor($fresh),
             'selectedWeek' => null,
         ])->render();
 

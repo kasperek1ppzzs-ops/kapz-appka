@@ -189,6 +189,51 @@ class TravelSegmentService
         return collect(range(0, 6))->map(fn ($d) => $start->copy()->addDays($d))->all();
     }
 
+    /**
+     * Dni po–pi (a víkend, ak je naň cesta) pre každý z 5 týždňových blokov plánu.
+     * Deň nesie úseky zo všetkých položiek toho dňa, poznámku dňa a absenciu z dochádzky.
+     */
+    public function weeksFor(TravelPlan $plan): array
+    {
+        $plan->loadMissing('items.segments', 'reportingPeriod');
+        $period = $plan->reportingPeriod;
+        $itemsByDate = $plan->items->groupBy(fn ($i) => \Carbon\Carbon::parse($i->trip_date)->toDateString());
+
+        $rangeStart = \Carbon\Carbon::create($period->year, $period->month, 1)->startOfWeek();
+        $absences = \App\Models\AttendanceKapz::where('kapz_id', $plan->kapz_id)
+            ->whereBetween('date', [$rangeStart->toDateString(), $rangeStart->copy()->addWeeks(5)->toDateString()])
+            ->get()
+            ->mapWithKeys(fn ($a) => [\Carbon\Carbon::parse($a->date)->toDateString() => \App\Enums\AttendanceStatus::fromCode($a->status)->unworkedText()]);
+
+        $weeks = [];
+        for ($w = 1; $w <= 5; $w++) {
+            $days = [];
+            foreach ($this->weekDates($plan, $w) as $date) {
+                $key = $date->toDateString();
+                $items = $itemsByDate->get($key, collect())->sortBy('id');
+                if ($date->isWeekend() && $items->isEmpty()) {
+                    continue;
+                }
+                $days[] = [
+                    'date' => $date,
+                    'in_month' => $date->month === (int) $period->month,
+                    'segments' => $items->flatMap(fn ($i) => $this->segmentsFor($i))->values(),
+                    'note' => $items->pluck('notes')->filter()->implode('; '),
+                    'absence' => $absences[$key] ?? null,
+                ];
+            }
+
+            $weeks[$w] = [
+                'week_number' => $w,
+                'calendar_week' => $plan->getCalendarWeek($w),
+                'days' => $days,
+                'total_km' => collect($days)->sum(fn ($d) => $d['segments']->sum('km')),
+            ];
+        }
+
+        return $weeks;
+    }
+
     private function time(?string $value): ?string
     {
         $value = trim((string) $value);
