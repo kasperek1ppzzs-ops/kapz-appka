@@ -16,10 +16,7 @@ class AttendanceController extends Controller
 {
     public function showKapzAttendance(Request $request, AttendanceCalculatorService $calculator)
     {
-        $user = Auth::user();
-        $kapz = $user->isAdmin()
-            ? KapzProfile::findOrFail($request->input('kapz_id', 1))
-            : $user->kapzProfile;
+        $kapz = $this->resolveKapz($request);
 
         $periodId = $request->input('period_id', 1);
         $period = ReportingPeriod::findOrFail($periodId);
@@ -37,6 +34,8 @@ class AttendanceController extends Controller
             'period_id' => ['required', 'exists:reporting_periods,id'],
             'entries' => ['required', 'array'],
         ]);
+
+        $this->authorizeKapzAccess($request->kapz_id);
 
         foreach ($request->entries as $date => $data) {
             $status = $data['status'] ?? 'work';
@@ -70,6 +69,8 @@ class AttendanceController extends Controller
             'period_id' => ['required', 'exists:reporting_periods,id'],
         ]);
 
+        $this->authorizeKapzAccess($request->kapz_id);
+
         $period = ReportingPeriod::findOrFail($request->period_id);
         $kapz = KapzProfile::findOrFail($request->kapz_id);
         $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $period->month, $period->year);
@@ -101,6 +102,7 @@ class AttendanceController extends Controller
 
     public function downloadKapzPdf(Request $request, AttendanceCalculatorService $calculator, PdfGeneratorService $pdfGenerator)
     {
+        $this->authorizeKapzAccess($request->kapz_id);
         $kapz = KapzProfile::findOrFail($request->kapz_id);
         $period = ReportingPeriod::findOrFail($request->period_id);
         $summary = $calculator->calculateKapzMonthlySummary($kapz->id, $period->id);
@@ -111,10 +113,7 @@ class AttendanceController extends Controller
 
     public function showApzAttendance(Request $request, AttendanceCalculatorService $calculator)
     {
-        $user = Auth::user();
-        $kapz = $user->isAdmin()
-            ? KapzProfile::findOrFail($request->input('kapz_id', 1))
-            : $user->kapzProfile;
+        $kapz = $this->resolveKapz($request);
 
         $periodId = $request->input('period_id', 1);
         $period = ReportingPeriod::findOrFail($periodId);
@@ -122,13 +121,17 @@ class AttendanceController extends Controller
 
         // Get assigned APZs for KAPZ for this period
         $refDate = sprintf('%04d-%02d-15', $period->year, $period->month);
-        $assignedApzs = $kapz ? $kapz->assignedApzsForDate($refDate) : ApzProfile::all();
+        $assignedApzs = $kapz->assignedApzsForDate($refDate);
 
         if ($assignedApzs->isEmpty()) {
+            if (!Auth::user()->isSupervisor()) {
+                return redirect()->route('dashboard')->with('error', 'V tomto období nemáte pridelených žiadnych APZ.');
+            }
             $assignedApzs = ApzProfile::all();
         }
 
         $apzId = $request->input('apz_id', $assignedApzs->first()?->id);
+        $this->authorizeApzAccess($kapz->id, $apzId);
         $apz = ApzProfile::findOrFail($apzId);
 
         $summary = $calculator->calculateApzMonthlySummary($apz->id, $period->id);
@@ -157,6 +160,8 @@ class AttendanceController extends Controller
             'period_id' => ['required', 'exists:reporting_periods,id'],
             'entries' => ['required', 'array'],
         ]);
+
+        $this->authorizeApzAccess($request->kapz_id, $request->apz_id);
 
         foreach ($request->entries as $date => $data) {
             $status = $data['status'] ?? 'work';
@@ -190,6 +195,8 @@ class AttendanceController extends Controller
             'kapz_id' => ['required', 'exists:kapz_profiles,id'],
             'period_id' => ['required', 'exists:reporting_periods,id'],
         ]);
+
+        $this->authorizeApzAccess($request->kapz_id, $request->apz_id);
 
         $period = ReportingPeriod::findOrFail($request->period_id);
         $apz = ApzProfile::findOrFail($request->apz_id);
@@ -227,6 +234,8 @@ class AttendanceController extends Controller
             'period_id' => ['required', 'exists:reporting_periods,id'],
         ]);
 
+        $this->authorizeKapzAccess($request->kapz_id);
+
         $period = ReportingPeriod::findOrFail($request->period_id);
         $kapz = KapzProfile::findOrFail($request->kapz_id);
         $refDate = sprintf('%04d-%02d-15', $period->year, $period->month);
@@ -263,6 +272,7 @@ class AttendanceController extends Controller
 
     public function downloadApzPdf(Request $request, AttendanceCalculatorService $calculator, PdfGeneratorService $pdfGenerator)
     {
+        $this->authorizeApzAccess($request->kapz_id, $request->apz_id);
         $apz = ApzProfile::findOrFail($request->apz_id);
         $kapz = KapzProfile::findOrFail($request->kapz_id);
         $period = ReportingPeriod::findOrFail($request->period_id);
@@ -274,12 +284,13 @@ class AttendanceController extends Controller
 
     public function downloadAllApzPdf(Request $request, AttendanceCalculatorService $calculator, PdfGeneratorService $pdfGenerator)
     {
+        $this->authorizeKapzAccess($request->kapz_id);
         $kapz = KapzProfile::findOrFail($request->kapz_id);
         $period = ReportingPeriod::findOrFail($request->period_id);
         $refDate = sprintf('%04d-%02d-15', $period->year, $period->month);
         $assignedApzs = $kapz->assignedApzsForDate($refDate);
 
-        if ($assignedApzs->isEmpty()) {
+        if ($assignedApzs->isEmpty() && Auth::user()->isSupervisor()) {
             $assignedApzs = ApzProfile::all();
         }
 

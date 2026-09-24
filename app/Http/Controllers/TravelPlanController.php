@@ -23,7 +23,7 @@ class TravelPlanController extends Controller
         $period = ReportingPeriod::findOrFail($periodId);
 
         // 1. Role: Admin / Expert pre terén
-        if ($user->isAdmin()) {
+        if ($user->isSupervisor()) {
             $plans = TravelPlan::with(['kapz.user', 'items', 'reportingPeriod', 'reviewedBy'])
                 ->where('reporting_period_id', $period->id)
                 ->get();
@@ -32,10 +32,7 @@ class TravelPlanController extends Controller
 
         // 2. Role: KAPZ Koordinátor
         $kapz = $user->kapzProfile;
-        if (!$kapz) {
-            // Fallback for admin masquerading or KAPZ profile missing
-            $kapz = KapzProfile::first();
-        }
+        abort_if(!$kapz, 403, 'K účtu nie je priradený profil KAPZ.');
 
         $limit = $workflowService->getLimitForScope($kapz->scope);
 
@@ -152,6 +149,7 @@ class TravelPlanController extends Controller
         ]);
 
         $plan = TravelPlan::findOrFail($request->travel_plan_id);
+        $this->authorizeKapzAccess($plan->kapz_id);
 
         if (in_array($plan->status, ['SUBMITTED', 'APPROVED'])) {
             return back()->with('error', 'Schválený alebo odoslaný plán nie je možné upravovať.');
@@ -180,6 +178,7 @@ class TravelPlanController extends Controller
     public function updateItem(Request $request, TravelPlanItem $item)
     {
         $plan = $item->travelPlan;
+        $this->authorizeKapzAccess($plan->kapz_id);
         if (in_array($plan->status, ['SUBMITTED', 'APPROVED'])) {
             return back()->with('error', 'Schválený alebo odoslaný plán nie je možné upravovať.');
         }
@@ -222,6 +221,7 @@ class TravelPlanController extends Controller
     public function deleteItem(TravelPlanItem $item)
     {
         $plan = $item->travelPlan;
+        $this->authorizeKapzAccess($plan->kapz_id);
         if (in_array($plan->status, ['SUBMITTED', 'APPROVED'])) {
             return back()->with('error', 'Schválený alebo odoslaný plán nie je možné upravovať.');
         }
@@ -235,6 +235,7 @@ class TravelPlanController extends Controller
     public function submit(Request $request, TravelWorkflowService $workflowService)
     {
         $plan = TravelPlan::findOrFail($request->plan_id);
+        $this->authorizeKapzAccess($plan->kapz_id);
 
         if ($plan->items()->count() === 0) {
             return back()->with('error', 'Pred odoslaním na schválenie musíte naplánovať aspoň jednu pracovnú cestu.');
@@ -273,6 +274,7 @@ class TravelPlanController extends Controller
 
     public function downloadPdf(Request $request, TravelPlan $plan, PdfGeneratorService $pdfGenerator)
     {
+        $this->authorizeKapzAccess($plan->kapz_id);
         $week = $request->query('week') ? (int) $request->query('week') : null;
         $pdf = $pdfGenerator->generateTravelPlanPdf($plan, $week);
         $orderNumber = str_replace('/', '_', $plan->order_number);

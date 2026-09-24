@@ -39,6 +39,14 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
+    /**
+     * Admin, Expert pre terén alebo manažment – vidia a schvaľujú dokumentáciu všetkých KAPZ.
+     */
+    public function isSupervisor(): bool
+    {
+        return in_array($this->role, ['admin', 'expert', 'manager'], true);
+    }
+
     public function isKapz(): bool
     {
         return $this->role === 'kapz';

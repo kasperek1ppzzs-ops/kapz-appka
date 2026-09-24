@@ -18,7 +18,7 @@ class ActivityReportController extends Controller
         $period = ReportingPeriod::findOrFail($periodId);
         $periods = ReportingPeriod::orderBy('year', 'desc')->orderBy('month', 'desc')->get();
 
-        if ($user->isAdmin()) {
+        if ($user->isSupervisor()) {
             $reports = ActivityReport::with(['kapz', 'reportingPeriod'])->where('reporting_period_id', $period->id)->get();
         } else {
             $kapz = $user->kapzProfile;
@@ -33,6 +33,7 @@ class ActivityReportController extends Controller
 
     public function downloadPdf(ActivityReport $report, PdfGeneratorService $pdfGenerator)
     {
+        $this->authorizeKapzAccess($report->kapz_id);
         $pdf = $pdfGenerator->generateActivityReportPdf($report);
         return $pdf->download('SPRAVA_O_CINNOSTI_' . $report->kapz->personal_number . '.pdf');
     }

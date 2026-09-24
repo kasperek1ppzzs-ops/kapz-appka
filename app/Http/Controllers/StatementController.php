@@ -122,6 +122,7 @@ class StatementController extends Controller
 
     public function save(Request $request, OutsideActivityDeclaration $declaration)
     {
+        $this->authorizeKapzAccess($declaration->kapz_id);
         $itemsData = $request->input('items', []);
 
         foreach ($itemsData as $itemId => $data) {
@@ -151,6 +152,7 @@ class StatementController extends Controller
 
     public function quickFillAllNo(Request $request, OutsideActivityDeclaration $declaration)
     {
+        $this->authorizeKapzAccess($declaration->kapz_id);
         $lastDayOfMonth = Carbon::create($declaration->reportingPeriod->year, $declaration->reportingPeriod->month, 1)->endOfMonth()->format('Y-m-d');
 
         $declaration->items()->update([
@@ -171,6 +173,7 @@ class StatementController extends Controller
 
     public function downloadPdf(OutsideActivityDeclaration $declaration, PdfGeneratorService $pdfGenerator)
     {
+        $this->authorizeKapzAccess($declaration->kapz_id);
         $declaration->load(['kapz', 'reportingPeriod', 'items']);
         $pdf = $pdfGenerator->generateOutsideActivityDeclarationPdf($declaration);
         

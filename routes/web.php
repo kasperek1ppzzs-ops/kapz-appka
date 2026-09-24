@@ -45,8 +45,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/travel/items/{item}/update', [TravelPlanController::class, 'updateItem'])->name('travel.update_item');
     Route::delete('/travel/items/{item}', [TravelPlanController::class, 'deleteItem'])->name('travel.delete_item');
     Route::post('/travel/submit', [TravelPlanController::class, 'submit'])->name('travel.submit');
-    Route::post('/travel/approve', [TravelPlanController::class, 'approve'])->name('travel.approve');
-    Route::post('/travel/return', [TravelPlanController::class, 'returnPlan'])->name('travel.return');
+    Route::middleware('role:admin,expert,manager')->group(function () {
+        Route::post('/travel/approve', [TravelPlanController::class, 'approve'])->name('travel.approve');
+        Route::post('/travel/return', [TravelPlanController::class, 'returnPlan'])->name('travel.return');
+    });
     Route::get('/travel/pdf/{plan}', [TravelPlanController::class, 'downloadPdf'])->name('travel.pdf');
     Route::get('/travel/calculate-distance', [TravelPlanController::class, 'calculateDistance'])->name('travel.calculate_distance');
 
@@ -79,8 +81,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/activity-reports/{report}/pdf', [ActivityReportController::class, 'downloadPdf'])->name('activity_reports.pdf');
 
     // Reports & CSV Export
-    Route::get('/reports', [ReportingController::class, 'index'])->name('reports.index');
-    Route::get('/reports/export-csv', [ReportingController::class, 'exportCsv'])->name('reports.export_csv');
+    Route::middleware('role:admin,expert,manager')->group(function () {
+        Route::get('/reports', [ReportingController::class, 'index'])->name('reports.index');
+        Route::get('/reports/export-csv', [ReportingController::class, 'exportCsv'])->name('reports.export_csv');
+    });
 
     // Contacts Directory (Zoznam kontaktov)
     Route::get('/contacts', [\App\Http\Controllers\ContactController::class, 'index'])->name('contacts.index');
@@ -88,10 +92,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/contacts/export-csv', [\App\Http\Controllers\ContactController::class, 'exportCsv'])->name('contacts.export_csv');
 
     // Admin Routes
-    Route::post('/admin/period/{period}/toggle-lock', [AdminPeriodController::class, 'togglePeriodLock'])->name('admin.period.toggle_lock');
-    Route::get('/admin/kapz', [AdminManagementController::class, 'listKapz'])->name('admin.kapz.index');
-    Route::get('/admin/apz', [AdminManagementController::class, 'listApz'])->name('admin.apz.index');
-    Route::get('/admin/assignments', [AdminManagementController::class, 'listAssignments'])->name('admin.assignments.index');
-    Route::post('/admin/assignments', [AdminManagementController::class, 'storeAssignment'])->name('admin.assignments.store');
-    Route::get('/admin/audit-logs', [AdminManagementController::class, 'listAuditLogs'])->name('admin.audit_logs');
+    Route::middleware('role:admin')->group(function () {
+        Route::post('/admin/period/{period}/toggle-lock', [AdminPeriodController::class, 'togglePeriodLock'])->name('admin.period.toggle_lock');
+        Route::get('/admin/kapz', [AdminManagementController::class, 'listKapz'])->name('admin.kapz.index');
+        Route::get('/admin/apz', [AdminManagementController::class, 'listApz'])->name('admin.apz.index');
+        Route::get('/admin/assignments', [AdminManagementController::class, 'listAssignments'])->name('admin.assignments.index');
+        Route::post('/admin/assignments', [AdminManagementController::class, 'storeAssignment'])->name('admin.assignments.store');
+        Route::get('/admin/audit-logs', [AdminManagementController::class, 'listAuditLogs'])->name('admin.audit_logs');
+    });
 });
