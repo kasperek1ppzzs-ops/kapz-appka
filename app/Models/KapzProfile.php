@@ -53,4 +53,16 @@ class KapzProfile extends Model
     {
         return $this->hasMany(TravelPlan::class, 'kapz_id');
     }
+
+    /** Východisková obec KAPZ = pôsobnosť (HLASENIE!B2). */
+    public function getBaseMunicipalityAttribute(): ?string
+    {
+        return $this->scope;
+    }
+
+    /** Excel matica počíta vždy s plným úväzkom 7,5 h/deň. */
+    public function getEmploymentRatioAttribute(): float
+    {
+        return 1.0;
+    }
 }

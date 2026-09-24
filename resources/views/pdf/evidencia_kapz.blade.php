@@ -86,7 +86,7 @@
             12 => ['label' => 'Prekážky v práci - (neplatené)', 'val' => $summary['unpaid_days'] ?: '', 'bold' => false],
             13 => ['label' => 'Skutočne odpracované dni', 'val' => $summary['actual_work_days'], 'bold' => true],
             14 => ['label' => 'Finančný príspevok - dni', 'val' => $summary['financial_days'], 'bold' => true],
-            15 => ['label' => 'Iné:', 'val' => '', 'bold' => false],
+            15 => ['label' => 'Iné:', 'val' => ($summary['other_days'] + $summary['nv_days']) ?: '', 'bold' => false],
         ];
     @endphp
 
@@ -112,32 +112,20 @@
                     $dayNum = date('N', strtotime($dateStr));
                     $isWeekend = in_array($dayNum, [6, 7]);
                     $isWithinMonth = $d <= $daysInMonth;
-                    $status = $entry ? $entry->status : ($isWeekend ? 'weekend' : 'work');
-                    $isWork = $status == 'work' && $isWithinMonth && !$isWeekend;
+                    $st = ($entry && $isWithinMonth) ? \App\Enums\AttendanceStatus::fromCode($entry->status) : null;
+                    $hasWorked = $st && $st->workedHours() > 0;
+                    $workedHours = $hasWorked ? ($st === \App\Enums\AttendanceStatus::Work ? (float) $entry->hours_worked : $st->workedHours()) : null;
+                    $unworkedText = $st?->unworkedText();
                 @endphp
                 <tr class="{{ $isWeekend ? 'weekend-row' : '' }}">
                     <td>{{ $d }}</td>
-                    <td class="label-cell">{{ $isWork ? ($entry && $entry->workplace ? $entry->workplace : ($entry && $entry->activity_description ? $entry->activity_description : $kapz->scope)) : '' }}</td>
+                    <td class="label-cell">{{ $hasWorked ? ($entry->workplace ?: $kapz->scope) : '' }}</td>
                     <td></td>
-                    <td>{{ $isWork ? number_format($entry ? $entry->hours_worked : $stdHours, 1, ',', '') : '' }}</td>
+                    <td>{{ $hasWorked ? str_replace('.', ',', (string) (float) $workedHours) : '' }}</td>
                     <td class="label-cell">
-                        @if(!$isWork && $isWithinMonth && !$isWeekend)
-                            @switch($status)
-                                @case('holiday') Dovolenka @break
-                                @case('pn') Práce neschopnosť (nemoc) @break
-                                @case('ocr') OČR @break
-                                @case('doctor') Lekár @break
-                                @case('doctor_family') Lekár - doprovod @break
-                                @case('public_holiday') Sviatok @break
-                                @case('paid_absence') Prekážky v práci - platené @break
-                                @case('unpaid_absence') Prekážky v práci - neplatené @break
-                                @case('funeral') Pohreb @break
-                                @case('blood_donation') Darovanie krvi @break
-                                @default {{ $status }}
-                            @endswitch
-                        @endif
+                        {{ $unworkedText }}
                     </td>
-                    <td>{{ (!$isWork && $isWithinMonth && !$isWeekend) ? number_format($entry ? $entry->hours_worked : $stdHours, 1, ',', '') : '' }}</td>
+                    <td>{{ $unworkedText ? str_replace('.', ',', (string) (float) $st->unworkedHours()) : '' }}</td>
 
                     @if(isset($summaryRows[$d]))
                         <td class="label-cell {{ $summaryRows[$d]['bold'] ? 'highlight-row' : '' }}">

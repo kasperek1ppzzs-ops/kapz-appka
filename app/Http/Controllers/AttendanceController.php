@@ -9,7 +9,9 @@ use App\Models\AttendanceKapz;
 use App\Models\AttendanceApz;
 use App\Services\AttendanceCalculatorService;
 use App\Services\PdfGeneratorService;
+use App\Enums\AttendanceStatus;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 
 class AttendanceController extends Controller
@@ -33,15 +35,14 @@ class AttendanceController extends Controller
             'kapz_id' => ['required', 'exists:kapz_profiles,id'],
             'period_id' => ['required', 'exists:reporting_periods,id'],
             'entries' => ['required', 'array'],
+            'entries.*.status' => ['nullable', Rule::in(AttendanceStatus::acceptedCodes())],
+            'entries.*.hours_worked' => ['nullable', 'numeric', 'min:0', 'max:24'],
         ]);
 
         $this->authorizeKapzAccess($request->kapz_id);
 
         foreach ($request->entries as $date => $data) {
-            $status = $data['status'] ?? 'work';
-            $isWork = ($status === 'work');
-            $workplace = $isWork ? (trim($data['workplace'] ?? '') ?: null) : null;
-            $hours = $isWork ? ($data['hours_worked'] ?? 7.50) : ($data['hours_worked'] ?? 0.00);
+            [$status, $workplace, $hours] = $this->normalizeEntry($data);
 
             AttendanceKapz::updateOrCreate(
                 [
@@ -145,7 +146,7 @@ class AttendanceController extends Controller
                 'total_hours' => $sum['total_hours'],
                 'holiday_days' => $sum['holiday_days'],
                 'pn_days' => $sum['pn_days'],
-                'is_complete' => ($sum['work_days'] + $sum['holiday_days'] + $sum['pn_days'] + $sum['ocr_days']) >= 20,
+                'is_complete' => $sum['fund_ok'],
             ];
         }
 
@@ -159,15 +160,14 @@ class AttendanceController extends Controller
             'kapz_id' => ['required', 'exists:kapz_profiles,id'],
             'period_id' => ['required', 'exists:reporting_periods,id'],
             'entries' => ['required', 'array'],
+            'entries.*.status' => ['nullable', Rule::in(AttendanceStatus::acceptedCodes())],
+            'entries.*.hours_worked' => ['nullable', 'numeric', 'min:0', 'max:24'],
         ]);
 
         $this->authorizeApzAccess($request->kapz_id, $request->apz_id);
 
         foreach ($request->entries as $date => $data) {
-            $status = $data['status'] ?? 'work';
-            $isWork = ($status === 'work');
-            $workplace = $isWork ? (trim($data['workplace'] ?? '') ?: null) : null;
-            $hours = $isWork ? ($data['hours_worked'] ?? 7.50) : ($data['hours_worked'] ?? 0.00);
+            [$status, $workplace, $hours] = $this->normalizeEntry($data);
 
             AttendanceApz::updateOrCreate(
                 [
@@ -304,5 +304,23 @@ class AttendanceController extends Controller
 
         $pdf = $pdfGenerator->generateBatchApzAttendancePdf($batchData, $kapz, $period);
         return $pdf->download('EVIDENCIA_APZ_VSETCI_' . $kapz->personal_number . '_' . $period->year . '_' . sprintf('%02d', $period->month) . '.pdf');
+    }
+
+    /**
+     * Pravidlá EVIDENCIA_KAPZ/APZ: pracovisko iba pri práci a polovičnom dni,
+     * hodiny podľa stavu (7,5 / 3,75 / 0) – pri práci môže používateľ hodiny upraviť.
+     *
+     * @return array{0: string, 1: ?string, 2: float}
+     */
+    private function normalizeEntry(array $data): array
+    {
+        $status = AttendanceStatus::fromCode($data['status'] ?? 'work');
+        $workplace = $status->hasWorkplace() ? (trim($data['workplace'] ?? '') ?: null) : null;
+
+        $hours = $status === AttendanceStatus::Work
+            ? (float) ($data['hours_worked'] ?? AttendanceStatus::FULL_DAY_HOURS)
+            : $status->workedHours();
+
+        return [$status->value, $workplace, $hours];
     }
 }
