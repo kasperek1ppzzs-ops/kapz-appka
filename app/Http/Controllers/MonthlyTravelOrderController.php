@@ -71,6 +71,7 @@ class MonthlyTravelOrderController extends Controller
             'companions' => ['nullable', 'string', 'max:255'],
             'vehicle' => ['nullable', 'string', 'max:255'],
             'vehicle_plate' => ['nullable', 'string', 'max:20'],
+            'vehicle_model' => ['nullable', 'string', 'max:255'],
             'expected_costs' => ['nullable', 'numeric', 'min:0'],
             'advance_amount' => ['nullable', 'numeric', 'min:0'],
             'fuel_consumption' => ['nullable', 'numeric', 'min:0', 'max:50'],
@@ -155,5 +156,61 @@ class MonthlyTravelOrderController extends Controller
         return Pdf::loadView('pdf.vyuctovanie_vd', ['order' => $order, 'calc' => $service->calculate($order)])
             ->setPaper('a4', 'portrait')
             ->download('VYUCTOVANIE_VD_' . str_replace('/', '_', $order->order_number) . '.pdf');
+    }
+
+    /** Správy z pracovných ciest po dňoch (hárky „Správa z pracovnej cesty“ a GENERATOR). */
+    public function reports(MonthlyTravelOrder $order, TravelOrderService $service)
+    {
+        $this->authorizeKapzAccess($order->kapz_id);
+        $order->load('kapz', 'reportingPeriod');
+
+        return view('travel.cp_reports', ['order' => $order, 'days' => $service->reportDays($order)]);
+    }
+
+    public function saveReports(Request $request, MonthlyTravelOrder $order)
+    {
+        $this->authorizeKapzAccess($order->kapz_id);
+        if ($order->status !== 'DRAFT') {
+            return back()->with('error', 'Uzavretý cestovný príkaz nie je možné upravovať.');
+        }
+
+        $data = $request->validate([
+            'days' => ['required', 'array'],
+            'days.*.report_text' => ['nullable', 'string', 'max:5000'],
+            'days.*.conclusion' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $validDates = $order->segments()->pluck('trip_date')->map(fn ($d) => \Carbon\Carbon::parse($d)->toDateString())->unique();
+        foreach ($data['days'] as $date => $texts) {
+            if (!$validDates->contains($date)) {
+                continue;
+            }
+            $order->dayTexts()->updateOrCreate(
+                ['trip_date' => $date],
+                ['report_text' => $texts['report_text'] ?? null, 'conclusion' => $texts['conclusion'] ?? null]
+            );
+        }
+
+        return back()->with('success', 'Správy z pracovných ciest boli uložené.');
+    }
+
+    public function reportsPdf(MonthlyTravelOrder $order, TravelOrderService $service)
+    {
+        $this->authorizeKapzAccess($order->kapz_id);
+        $order->load('kapz', 'reportingPeriod');
+
+        return Pdf::loadView('pdf.sprava_z_pracovnej_cesty', ['order' => $order, 'days' => $service->reportDays($order)])
+            ->setPaper('a4', 'portrait')
+            ->download('SPRAVY_Z_PRACOVNYCH_CIEST_' . str_replace('/', '_', $order->order_number) . '.pdf');
+    }
+
+    public function generatorPdf(MonthlyTravelOrder $order, TravelOrderService $service)
+    {
+        $this->authorizeKapzAccess($order->kapz_id);
+        $order->load('kapz', 'reportingPeriod');
+
+        return Pdf::loadView('pdf.generator_sprava', ['order' => $order, 'days' => $service->reportDays($order)])
+            ->setPaper('a4', 'portrait')
+            ->download('SPRAVA_ZO_SLUZOBNEJ_CESTY_' . str_replace('/', '_', $order->order_number) . '.pdf');
     }
 }

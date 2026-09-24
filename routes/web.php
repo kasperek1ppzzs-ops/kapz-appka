@@ -58,6 +58,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/travel/cp/generate', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'generate'])->name('travel.cp.generate');
     Route::post('/travel/cp/{order}', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'update'])->name('travel.cp.update');
     Route::post('/travel/cp/{order}/status', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'toggleStatus'])->name('travel.cp.status');
+    Route::get('/travel/cp/{order}/spravy', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'reports'])->name('travel.cp.reports');
+    Route::post('/travel/cp/{order}/spravy', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'saveReports'])->name('travel.cp.reports.save');
+    Route::get('/travel/cp/{order}/spravy-pdf', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'reportsPdf'])->name('travel.cp.reports_pdf');
+    Route::get('/travel/cp/{order}/generator-pdf', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'generatorPdf'])->name('travel.cp.generator_pdf');
     Route::get('/travel/cp/{order}/pdf', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'pdf'])->name('travel.cp.pdf');
     Route::get('/travel/cp/{order}/vyuctovanie-pdf', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'settlementPdf'])->name('travel.cp.settlement_pdf');
     Route::get('/travel/orders', [TravelOrderController::class, 'index'])->name('travel.orders');

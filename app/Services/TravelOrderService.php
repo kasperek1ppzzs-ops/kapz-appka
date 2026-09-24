@@ -163,4 +163,45 @@ class TravelOrderService
             })
             ->values();
     }
+
+    /**
+     * Dni cestovného príkazu doplnené o texty správ:
+     *  - conclusion = uložený záver, inak „Závery/Odporúčania“ podľa účelu (GENERATOR: IF(E13=Q14,R14,…)),
+     *  - report_text = uložený text správy, inak predvolene záver.
+     */
+    public function reportDays(MonthlyTravelOrder $order): Collection
+    {
+        $order->loadMissing('segments', 'dayTexts');
+        $texts = $order->dayTexts->keyBy(fn ($d) => $d->trip_date->toDateString());
+        $conclusions = \App\Models\TravelPurpose::pluck('conclusion', 'title');
+
+        return $this->days($order->segments)->map(function (array $day) use ($texts, $conclusions) {
+            $saved = $texts->get($day['date']->toDateString());
+            $default = $day['purpose'] ? ($conclusions[$day['purpose']] ?? null) : null;
+            $day['default_conclusion'] = $default;
+            $day['conclusion'] = $saved?->conclusion ?: $default;
+            $day['report_text'] = $saved?->report_text ?: ($saved?->conclusion ?: $default);
+
+            return $day;
+        });
+    }
+
+    /** Čerpanie mesačného limitu (Správa o pracovnej činnosti H11–H13): limit, najazdené km z CP, zostatok. */
+    public function limitUsage(\App\Models\KapzProfile $kapz, \App\Models\ReportingPeriod $period): array
+    {
+        $limit = app(TravelWorkflowService::class)->getLimitForScope($kapz->scope);
+        $order = MonthlyTravelOrder::with('segments')
+            ->where('kapz_id', $kapz->id)
+            ->where('reporting_period_id', $period->id)
+            ->first();
+        $driven = $order ? round($order->segments->sum('km'), 2) : 0.0;
+
+        return [
+            'limit' => $limit,
+            'driven' => $driven,
+            'remaining' => round($limit - $driven, 2),
+            'order' => $order,
+            'days' => $order ? $this->reportDays($order) : collect(),
+        ];
+    }
 }

@@ -357,3 +357,20 @@ Každý bod je samostatná, testovateľná zmena. Nič z toho nebolo v tejto fá
 - Limit „Banská Bystrica“ (1250 km) nie je v matici – ponechaný z pôvodnej aplikácie, treba potvrdiť.
 - Test `TravelPlanTest::test_distance_calculation_endpoint` volá živé služby (vzdialenosti.sk, OSRM) a je nestabilný nezávisle od týchto zmien (overené na pôvodnom kóde).
 - Priorita 2 a 3 (úseky ciest, mesačný CP a vyúčtovanie, dopravné prostriedky, PDF podľa predlôh, sviatky) zostáva otvorená.
+
+## 8. Stav opráv – fáza 3 (roly a cestovné doklady)
+
+| Oblasť | Stav | Commit |
+|---|---|---|
+| Roly `expert`/`manager` (dashboard, navigácia) | ✅ | `e86b23f` |
+| Expert vidí iba KAPZ pridelených adminom (historizované `expert_kapz_assignments`) | ✅ | `99d0585` |
+| Úseky ciest Odchod/Príchod (P4, P6) | ✅ `travel_plan_segments` | `ca6580e` |
+| Editor a PDF plánu v tvare matice (P3, P5–P7, P9, P11) | ✅ | `91d3d64` |
+| Mesačný CP, vyúčtovanie, Vyúčtovanie VD (C1–C4, C6, P10) | ✅ `monthly_travel_orders` | `e9c5eb9` |
+| GENERATOR, Správa z pracovnej cesty, čerpanie limitu z CP (C7–C9) | ✅ `monthly_travel_order_days` | nasledujúci commit |
+
+**Väzby ako v matici:** Plán (úseky) → schválenie → Cestovný príkaz (kópia úsekov mesiaca, skutočné časy/km/výdavky)
+→ Vyúčtovanie (vzorce Y, AD, AD271) a Vyúčtovanie VD (súpis km) → Správa z pracovnej cesty / GENERATOR (dni z CP, závery podľa účelu)
+→ Správa o pracovnej činnosti (limit − najazdené km z CP).
+
+Otvorené: stravné sa zadáva ručne (ako v matici), sadzba 0,183 €/km je v `config/kapz.php` a treba ju overiť; staršie cestovné príkazy (`travel_orders`) ostávajú len na čítanie.

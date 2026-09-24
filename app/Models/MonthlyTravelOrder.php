@@ -13,7 +13,7 @@ class MonthlyTravelOrder extends Model
 {
     protected $fillable = [
         'kapz_id', 'reporting_period_id', 'travel_plan_id', 'order_number', 'status',
-        'residence_address', 'residence_city', 'companions', 'vehicle', 'vehicle_plate',
+        'residence_address', 'residence_city', 'companions', 'vehicle', 'vehicle_plate', 'vehicle_model',
         'expected_costs', 'advance_amount', 'fuel_consumption', 'report_submitted_on',
         'meals_free', 'accommodation_free', 'discounted_ticket', 'note',
     ];
@@ -46,5 +46,10 @@ class MonthlyTravelOrder extends Model
     public function segments(): HasMany
     {
         return $this->hasMany(MonthlyTravelOrderSegment::class)->orderBy('trip_date')->orderBy('position');
+    }
+
+    public function dayTexts(): HasMany
+    {
+        return $this->hasMany(MonthlyTravelOrderDay::class);
     }
 }

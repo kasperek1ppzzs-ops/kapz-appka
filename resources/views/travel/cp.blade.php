@@ -44,6 +44,7 @@
                 </form>
             @endif
             @if($order)
+                <a href="{{ route('travel.cp.reports', $order) }}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold">📝 Správy z pracovných ciest</a>
                 <a href="{{ route('travel.cp.pdf', $order) }}" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold">📄 PDF cestovný príkaz</a>
                 <a href="{{ route('travel.cp.settlement_pdf', $order) }}" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold">📄 PDF vyúčtovanie VD</a>
                 <form method="POST" action="{{ route('travel.cp.status', $order) }}">
@@ -116,6 +117,7 @@
             <label class="flex items-center gap-2">4. Určený dopravný prostriedok
                 <input name="vehicle" value="{{ $order->vehicle }}" class="w-28 p-1.5 border border-slate-300 rounded">
                 <input name="vehicle_plate" value="{{ $order->vehicle_plate }}" placeholder="ŠPZ" class="w-28 p-1.5 border border-slate-300 rounded">
+                <input name="vehicle_model" value="{{ $order->vehicle_model }}" placeholder="typ vozidla" class="w-36 p-1.5 border border-slate-300 rounded">
             </label>
             <label class="flex items-center gap-2">5. Predpokladaná čiastka výdajov v EUR <input name="expected_costs" type="number" step="0.01" value="{{ $order->expected_costs }}" class="w-28 p-1.5 border border-slate-300 rounded"></label>
             <label class="flex items-center gap-2">6. Povolená záloha (preddavok) v EUR <input name="advance_amount" type="number" step="0.01" value="{{ $order->advance_amount }}" class="w-28 p-1.5 border border-slate-300 rounded"></label>
