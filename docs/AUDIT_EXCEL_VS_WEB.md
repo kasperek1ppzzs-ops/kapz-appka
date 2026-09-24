@@ -335,3 +335,25 @@ Každý bod je samostatná, testovateľná zmena. Nič z toho nebolo v tejto fá
 - Volania vzdialenosti.sk / OSRM neboli spúšťané (sieť); hodnotená je iba logika.
 - Vizuálne (pixelové) porovnanie PDF s Excelom nebolo robené – porovnané sú polia, poradie a výpočty.
 - Právne sadzby (stravné, náhrada za km, sviatky) sú uvedené iba tak, ako sú v matici; ich aktuálnosť treba overiť v platných predpisoch.
+
+---
+
+## 7. Stav opráv – fáza 2 (priorita 1)
+
+| Odporúčanie | Nálezy | Stav | Commit |
+|---|---|---|---|
+| 1. Autorizácia | S1–S4 | ✅ middleware `role`, kontrola vlastníctva KAPZ/APZ; test `AuthorizationTest` | `f6d5453` |
+| 2.–3. Číselník stavov, hodiny absencií, polovičné dni | D1–D4, D6, D7, D10, D11 | ✅ `App\Enums\AttendanceStatus` (19 stavov), 7,5/3,75 h, validácia; test `AttendanceExcelParityTest` | `7066fe3` |
+| 5. Fond pracovného času | D5, D8 | ✅ `WorkingTimeFundService`, kontrola fondu na obrazovke | `7066fe3` |
+| 4. Kniha príchodov | K1–K6, K8 | ✅ pravidlo „odpracované ≥ 7,5 h“, poznámka z číselníka, lokalita = pôsobnosť; test `BookExcelParityTest` | `96d3722` |
+| 6. Limity km | P2 | ✅ tabuľka `km_limits`, presná zhoda pôsobnosti; test `TravelExcelParityTest` | `0eff06a` |
+| 7. Účely ciest | P1 | ✅ tabuľka `travel_purposes` (19 účelov z GENERATOR) | `0eff06a` |
+| 8. PDF plánu bez vymyslených časov | P5 | ✅ | `0eff06a` |
+| 9. Detail cestovného príkazu | C5 | ✅ view `travel/order_detail` | `0eff06a` |
+
+**Poznámky k nasadeniu:**
+- Spustiť `php artisan migrate` (2 nové migrácie: zjednotenie kódu `substitute_leave` → `nv`, číselníky `km_limits` a `travel_purposes`).
+- Existujúce knihy sa neprepíšu automaticky – prepočítajú sa tlačidlom „Znovu načítať z dochádzky“.
+- Limit „Banská Bystrica“ (1250 km) nie je v matici – ponechaný z pôvodnej aplikácie, treba potvrdiť.
+- Test `TravelPlanTest::test_distance_calculation_endpoint` volá živé služby (vzdialenosti.sk, OSRM) a je nestabilný nezávisle od týchto zmien (overené na pôvodnom kóde).
+- Priorita 2 a 3 (úseky ciest, mesačný CP a vyúčtovanie, dopravné prostriedky, PDF podľa predlôh, sviatky) zostáva otvorená.
