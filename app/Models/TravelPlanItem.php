@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class TravelPlanItem extends Model
@@ -33,6 +34,11 @@ class TravelPlanItem extends Model
     public function targetApz(): BelongsTo
     {
         return $this->belongsTo(ApzProfile::class, 'target_apz_id');
+    }
+
+    public function segments(): HasMany
+    {
+        return $this->hasMany(TravelPlanSegment::class, 'travel_plan_item_id')->orderBy('position');
     }
 
     public function travelOrder(): HasOne

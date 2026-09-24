@@ -44,6 +44,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/travel/add-item', [TravelPlanController::class, 'addItem'])->name('travel.add_item');
     Route::post('/travel/items/{item}/update', [TravelPlanController::class, 'updateItem'])->name('travel.update_item');
     Route::delete('/travel/items/{item}', [TravelPlanController::class, 'deleteItem'])->name('travel.delete_item');
+    Route::post('/travel/{plan}/day', [TravelPlanController::class, 'saveDay'])->name('travel.save_day');
     Route::post('/travel/submit', [TravelPlanController::class, 'submit'])->name('travel.submit');
     Route::middleware('role:admin,expert,manager')->group(function () {
         Route::post('/travel/approve', [TravelPlanController::class, 'approve'])->name('travel.approve');

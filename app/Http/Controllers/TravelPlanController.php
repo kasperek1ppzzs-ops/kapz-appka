@@ -9,6 +9,7 @@ use App\Models\KapzProfile;
 use App\Models\ApzProfile;
 use App\Services\TravelWorkflowService;
 use App\Services\PdfGeneratorService;
+use App\Services\TravelSegmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -132,7 +133,7 @@ class TravelPlanController extends Controller
         ));
     }
 
-    public function addItem(Request $request)
+    public function addItem(Request $request, TravelSegmentService $segments)
     {
         $request->validate([
             'travel_plan_id' => ['required', 'exists:travel_plans,id'],
@@ -158,7 +159,7 @@ class TravelPlanController extends Controller
             return back()->with('error', 'Schválený alebo odoslaný plán nie je možné upravovať.');
         }
 
-        TravelPlanItem::create([
+        $item = TravelPlanItem::create([
             'travel_plan_id' => $plan->id,
             'week_number' => $request->week_number,
             'trip_date' => $request->trip_date,
@@ -175,10 +176,12 @@ class TravelPlanController extends Controller
             'notes' => $request->notes,
         ]);
 
+        $segments->rebuildSegments($item);
+
         return back()->with('success', "Pracovná cesta do {$request->destination_location} bola pridaná do {$request->week_number}. týždňa.");
     }
 
-    public function updateItem(Request $request, TravelPlanItem $item)
+    public function updateItem(Request $request, TravelPlanItem $item, TravelSegmentService $segments)
     {
         $plan = $item->travelPlan;
         $this->authorizeKapzAccess($plan->kapz_id);
@@ -217,6 +220,8 @@ class TravelPlanController extends Controller
             'estimated_km' => $request->estimated_km,
             'notes' => $request->notes,
         ]);
+
+        $segments->rebuildSegments($item);
 
         return back()->with('success', 'Pracovná cesta bola úspešne upravená.');
     }
@@ -285,6 +290,53 @@ class TravelPlanController extends Controller
         $orderNumber = str_replace('/', '_', $plan->order_number);
         $suffix = $week ? "_{$week}_TYZDEN" : "_KOMPLET";
         return $pdf->download("PLAN_PRACOVNYCH_CIEST_{$orderNumber}{$suffix}.pdf");
+    }
+
+    /**
+     * Uloženie jedného dňa z editora v tvare matice (dvojice riadkov Odchod/Príchod).
+     */
+    public function saveDay(Request $request, TravelPlan $plan, TravelSegmentService $segments)
+    {
+        $this->authorizeKapzAccess($plan->kapz_id);
+
+        if (!in_array($plan->status, ['DRAFT', 'RETURNED'], true)) {
+            return back()->with('error', 'Schválený alebo odoslaný plán nie je možné upravovať.');
+        }
+
+        $period = $plan->reportingPeriod;
+        $validated = $request->validate([
+            'date' => ['required', 'date'],
+            'day_note' => ['nullable', 'string', 'max:255'],
+            'segments' => ['nullable', 'array', 'max:20'],
+            'segments.*.from_place' => ['nullable', 'string', 'max:255'],
+            'segments.*.departure_time' => ['nullable', 'string', 'max:10'],
+            'segments.*.to_place' => ['nullable', 'string', 'max:255'],
+            'segments.*.arrival_time' => ['nullable', 'string', 'max:10'],
+            'segments.*.transport_mode' => ['nullable', 'string', 'max:10'],
+            'segments.*.km' => ['nullable', 'numeric', 'min:0', 'max:2000'],
+            'segments.*.purpose' => ['nullable', 'string', 'max:255'],
+            'segments.*.description' => ['nullable', 'string', 'max:1000'],
+            'segments.*.accommodation' => ['nullable', 'string', 'max:50'],
+            'segments.*.companions' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $date = \Carbon\Carbon::parse($validated['date']);
+        $weekStart = \Carbon\Carbon::create($period->year, $period->month, 1)->startOfWeek();
+        $weekEnd = \Carbon\Carbon::create($period->year, $period->month, 1)->endOfMonth()->endOfWeek();
+        if ($date->lt($weekStart) || $date->gt($weekEnd)) {
+            return back()->with('error', 'Dátum nepatrí do týždňov tohto plánu.');
+        }
+
+        foreach ($validated['segments'] ?? [] as $row) {
+            $hasAny = trim((string) ($row['from_place'] ?? '')) !== '' || trim((string) ($row['to_place'] ?? '')) !== '';
+            if ($hasAny && (trim((string) ($row['from_place'] ?? '')) === '' || trim((string) ($row['to_place'] ?? '')) === '')) {
+                return back()->with('error', 'Každý úsek musí mať vyplnené miesto odchodu aj príchodu.');
+            }
+        }
+
+        $segments->saveDay($plan, $date->toDateString(), $validated['segments'] ?? [], $validated['day_note'] ?? null);
+
+        return back()->with('success', 'Deň ' . $date->format('d.m.Y') . ' bol uložený do plánu.');
     }
 
     public function calculateDistance(Request $request, \App\Services\DistanceCalculationService $distanceService)
