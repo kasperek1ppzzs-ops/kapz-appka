@@ -54,6 +54,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/travel/calculate-distance', [TravelPlanController::class, 'calculateDistance'])->name('travel.calculate_distance');
 
     // Travel Orders & Settlements
+    Route::get('/travel/cp', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'index'])->name('travel.cp.index');
+    Route::post('/travel/cp/generate', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'generate'])->name('travel.cp.generate');
+    Route::post('/travel/cp/{order}', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'update'])->name('travel.cp.update');
+    Route::post('/travel/cp/{order}/status', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'toggleStatus'])->name('travel.cp.status');
+    Route::get('/travel/cp/{order}/pdf', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'pdf'])->name('travel.cp.pdf');
+    Route::get('/travel/cp/{order}/vyuctovanie-pdf', [\App\Http\Controllers\MonthlyTravelOrderController::class, 'settlementPdf'])->name('travel.cp.settlement_pdf');
     Route::get('/travel/orders', [TravelOrderController::class, 'index'])->name('travel.orders');
     Route::get('/travel/orders/{order}', [TravelOrderController::class, 'show'])->name('travel.orders.show');
     Route::get('/travel/orders/{order}/pdf', [TravelOrderController::class, 'downloadPdf'])->name('travel.orders.pdf');

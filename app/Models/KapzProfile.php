@@ -12,11 +12,15 @@ class KapzProfile extends Model
         'user_id',
         'personal_number',
         'full_name',
+        'initials',
         'scope',
         'region_expert',
         'phone',
         'email',
         'address',
+        'residence_address',
+        'residence_city',
+        'vehicle_plate',
         'is_active',
     ];
 
@@ -77,5 +81,32 @@ class KapzProfile extends Model
     public function expertAssignments(): HasMany
     {
         return $this->hasMany(ExpertKapzAssignment::class, 'kapz_id');
+    }
+
+    /**
+     * Iniciály do čísla cestovného príkazu (HLASENIE!B42, napr. „LB“ pre „Bužová Lenka, Mgr.“).
+     * Ak nie sú zadané, odvodia sa z mena: tituly sa vynechajú, pri tvare
+     * „Priezvisko Meno, titul“ sa berie Meno + Priezvisko, inak prvé dve slová.
+     */
+    public function getInitialsCodeAttribute(): string
+    {
+        if ($this->initials) {
+            return mb_strtoupper($this->initials);
+        }
+
+        $name = (string) $this->full_name;
+        $isSurnameFirst = str_contains($name, ',');
+        $words = array_values(array_filter(
+            preg_split('/[\s,]+/u', $name),
+            fn ($w) => $w !== '' && !str_contains($w, '.')
+        ));
+
+        if (count($words) < 2) {
+            return mb_strtoupper(mb_substr($words[0] ?? 'X', 0, 2));
+        }
+
+        [$first, $second] = $isSurnameFirst ? [$words[1], $words[0]] : [$words[0], $words[1]];
+
+        return mb_strtoupper(mb_substr($first, 0, 1) . mb_substr($second, 0, 1));
     }
 }

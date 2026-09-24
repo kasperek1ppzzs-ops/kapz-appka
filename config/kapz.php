@@ -11,6 +11,10 @@ return [
     // ZFK – bod 1 overenia súladu (Plán pracovných ciest A57)
     'zfk_verifier' => env('KAPZ_ZFK_VERIFIER', 'Mgr. Lenka Eremiaš'),
 
+    // Sadzba za km pri použití vlastného vozidla (Cestovný príkaz BG85 = km × 0,183).
+    // Hodnota je prevzatá z matice – aktuálnu sadzbu treba overiť v platnom opatrení MPSVR SR.
+    'auv_rate_per_km' => (float) env('KAPZ_AUV_RATE_PER_KM', 0.183),
+
     // Pracovná pozícia KAPZ (HLASENIE!B37)
     'kapz_position' => 'Koordinátor asistentov podpory zdravia',
 ];

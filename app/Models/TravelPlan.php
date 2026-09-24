@@ -22,14 +22,14 @@ class TravelPlan extends Model
     ];
 
     /**
-     * Travel order number matching official Excel format MM/YYYY/KAPZ_ID/ZK
+     * Číslo cestovného príkazu podľa matice: MM/RRRR/INICIÁLY/ZK (Cestovný príkaz!E3)
      */
     public function getOrderNumberAttribute(): string
     {
         $month = str_pad($this->reportingPeriod->month, 2, '0', STR_PAD_LEFT);
         $year = $this->reportingPeriod->year;
-        $id = $this->kapz->id ?? 1;
-        return "{$month}/{$year}/{$id}/ZK";
+        $initials = $this->kapz?->initials_code ?? 'X';
+        return "{$month}/{$year}/{$initials}/ZK";
     }
 
     /**
