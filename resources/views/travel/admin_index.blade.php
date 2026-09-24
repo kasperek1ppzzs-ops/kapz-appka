@@ -59,7 +59,7 @@
                 $kapzProfile = $planItem->kapz;
                 $totKm = $planItem->items->sum('estimated_km');
                 $limKm = (float) $planItem->km_limit;
-                $isOver = $totKm > $limKm;
+                $isOver = $limKm > 0 && $totKm > $limKm;
             @endphp
 
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">

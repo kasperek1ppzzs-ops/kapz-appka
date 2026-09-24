@@ -226,8 +226,8 @@
                                 @endif
                             </td>
                             <td style="text-align: center; font-family: monospace; font-size: 6px; line-height: 1.3;">
-                                <div style="color: #0369a1;"><strong>Tam:</strong> {{ $item->departure_time ?: '08:00' }} &rarr; {{ $item->arrival_at_dest_time ?: '09:00' }}</div>
-                                <div style="color: #334155;"><strong>Späť:</strong> {{ $item->departure_from_dest_time ?: '14:00' }} &rarr; {{ $item->arrival_time ?: '15:00' }}</div>
+                                <div style="color: #0369a1;"><strong>Tam:</strong> {{ $item->departure_time }} &rarr; {{ $item->arrival_at_dest_time }}</div>
+                                <div style="color: #334155;"><strong>Späť:</strong> {{ $item->departure_from_dest_time }} &rarr; {{ $item->arrival_time }}</div>
                             </td>
                             <td>
                                 {{ $item->purpose }}

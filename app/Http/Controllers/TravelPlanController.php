@@ -50,7 +50,8 @@ class TravelPlanController extends Controller
             ]
         );
 
-        if ($plan->km_limit <= 0) {
+        // Rozpracovaný plán preberá aktuálny limit z číselníka; odoslaný/schválený si ponecháva snapshot.
+        if (in_array($plan->status, ['DRAFT', 'RETURNED'], true) && (float) $plan->km_limit !== $limit) {
             $plan->update(['km_limit' => $limit]);
         }
 
@@ -101,7 +102,7 @@ class TravelPlanController extends Controller
         $kmLimit = (float) $plan->km_limit;
         $kmRemaining = max(0, $kmLimit - $totalKm);
         $kmPercentage = $kmLimit > 0 ? min(100, round(($totalKm / $kmLimit) * 100)) : 0;
-        $isOverLimit = $totalKm > $kmLimit;
+        $isOverLimit = $kmLimit > 0 && $totalKm > $kmLimit;
 
         $officialPurposes = $workflowService->getOfficialPurposes();
         $transportModes = [
