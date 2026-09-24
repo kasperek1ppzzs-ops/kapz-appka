@@ -34,6 +34,17 @@ class DatabaseSeeder extends Seeder
             'phone' => '+421 900 000 000',
         ]);
 
+        // 1b. Expert pre terén – schvaľuje plány ciest a vidí dokumentáciu všetkých KAPZ, bez správy systému
+        User::create([
+            'name' => 'Mgr. Ľudmila Grešková',
+            'email' => 'expert@kapz.sk',
+            'password' => Hash::make('password'),
+            'role' => 'expert',
+            'personal_number' => 'EXP-001',
+            'scope' => 'Banská Bystrica',
+            'phone' => '+421 900 000 001',
+        ]);
+
         // 2. KAPZ User 1
         $userKapz1 = User::create([
             'name' => 'Mgr. Peter Novák',

@@ -87,10 +87,12 @@
                         👥 Kontakty
                     </a>
 
-                    @if(Auth::user()->isAdmin())
+                    @if(Auth::user()->isSupervisor())
                         <a href="{{ route('reports.index') }}" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition {{ request()->routeIs('reports.*') ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-300 hover:text-white hover:bg-slate-800' }}">
                             📊 Reporty
                         </a>
+                    @endif
+                    @if(Auth::user()->isAdmin())
                         <a href="{{ route('admin.assignments.index') }}" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition {{ request()->routeIs('admin.*') ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-300 hover:text-white hover:bg-slate-800' }}">
                             ⚙️ Admin
                         </a>

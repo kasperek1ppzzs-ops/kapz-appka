@@ -31,7 +31,7 @@ class DashboardController extends Controller
 
         $periods = ReportingPeriod::orderBy('year', 'desc')->orderBy('month', 'desc')->get();
 
-        if ($user->isAdmin()) {
+        if ($user->isSupervisor()) {
             return $this->adminDashboard($period, $periods, $attendanceService);
         }
 

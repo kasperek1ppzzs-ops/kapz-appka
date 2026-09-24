@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->string('role')->default('kapz'); // 'admin', 'kapz'
+            $table->string('role')->default('kapz'); // 'admin', 'expert', 'manager', 'kapz' – pozri User::isAdmin()/isSupervisor()
             $table->string('personal_number')->nullable()->unique();
             $table->string('scope')->nullable(); // pôsobnosť
             $table->string('phone')->nullable();
