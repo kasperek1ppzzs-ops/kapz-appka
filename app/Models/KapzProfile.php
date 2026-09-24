@@ -65,4 +65,17 @@ class KapzProfile extends Model
     {
         return 1.0;
     }
+
+    /** Iba KAPZ, ktorých smie daný používateľ vidieť (pozri User::accessibleKapzIds). */
+    public function scopeVisibleTo(\Illuminate\Database\Eloquent\Builder $query, User $user): \Illuminate\Database\Eloquent\Builder
+    {
+        $ids = $user->accessibleKapzIds();
+
+        return $ids === null ? $query : $query->whereIn('id', $ids);
+    }
+
+    public function expertAssignments(): HasMany
+    {
+        return $this->hasMany(ExpertKapzAssignment::class, 'kapz_id');
+    }
 }

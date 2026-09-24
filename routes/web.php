@@ -98,6 +98,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/admin/apz', [AdminManagementController::class, 'listApz'])->name('admin.apz.index');
         Route::get('/admin/assignments', [AdminManagementController::class, 'listAssignments'])->name('admin.assignments.index');
         Route::post('/admin/assignments', [AdminManagementController::class, 'storeAssignment'])->name('admin.assignments.store');
+        Route::post('/admin/expert-assignments', [AdminManagementController::class, 'storeExpertAssignment'])->name('admin.expert_assignments.store');
         Route::get('/admin/audit-logs', [AdminManagementController::class, 'listAuditLogs'])->name('admin.audit_logs');
     });
 });

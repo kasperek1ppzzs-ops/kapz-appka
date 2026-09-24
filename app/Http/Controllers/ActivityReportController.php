@@ -19,7 +19,11 @@ class ActivityReportController extends Controller
         $periods = ReportingPeriod::orderBy('year', 'desc')->orderBy('month', 'desc')->get();
 
         if ($user->isSupervisor()) {
-            $reports = ActivityReport::with(['kapz', 'reportingPeriod'])->where('reporting_period_id', $period->id)->get();
+            $visible = $this->visibleKapzIds();
+            $reports = ActivityReport::with(['kapz', 'reportingPeriod'])
+                ->where('reporting_period_id', $period->id)
+                ->when($visible !== null, fn ($q) => $q->whereIn('kapz_id', $visible))
+                ->get();
         } else {
             $kapz = $user->kapzProfile;
             $reports = ActivityReport::with(['kapz', 'reportingPeriod'])

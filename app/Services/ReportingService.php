@@ -15,10 +15,14 @@ class ReportingService
     /**
      * Get system-wide attendance summary for a given reporting period.
      */
-    public function getAttendanceSummary(ReportingPeriod $period): array
+    public function getAttendanceSummary(ReportingPeriod $period, ?array $kapzIds = null): array
     {
-        $kapzEntries = AttendanceKapz::where('reporting_period_id', $period->id)->get();
-        $apzEntries = AttendanceApz::where('reporting_period_id', $period->id)->get();
+        $kapzEntries = AttendanceKapz::where('reporting_period_id', $period->id)
+            ->when($kapzIds !== null, fn ($q) => $q->whereIn('kapz_id', $kapzIds))
+            ->get();
+        $apzEntries = AttendanceApz::where('reporting_period_id', $period->id)
+            ->when($kapzIds !== null, fn ($q) => $q->whereIn('kapz_id', $kapzIds))
+            ->get();
 
         return [
             'kapz_total_hours' => (float) $kapzEntries->sum('hours_worked'),
@@ -35,10 +39,11 @@ class ReportingService
     /**
      * Get travel km consumption summary by KAPZ.
      */
-    public function getTravelKmSummary(ReportingPeriod $period): array
+    public function getTravelKmSummary(ReportingPeriod $period, ?array $kapzIds = null): array
     {
         $plans = TravelPlan::with(['kapz', 'items'])
             ->where('reporting_period_id', $period->id)
+            ->when($kapzIds !== null, fn ($q) => $q->whereIn('kapz_id', $kapzIds))
             ->get();
 
         $result = [];

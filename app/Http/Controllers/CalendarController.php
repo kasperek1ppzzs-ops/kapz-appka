@@ -29,8 +29,12 @@ class CalendarController extends Controller
             $year++;
         }
 
-        $allKapzList = KapzProfile::with('user')->orderBy('full_name')->get();
+        $allKapzList = KapzProfile::visibleTo($user)->with('user')->orderBy('full_name')->get();
         $selectedKapzId = $request->input('kapz_id', $kapz?->id);
+        if ($selectedKapzId && !$user->canAccessKapz($selectedKapzId)) {
+            abort(403, 'Nemáte prístup k údajom tohto KAPZ.');
+        }
+        $visibleKapzIds = $user->accessibleKapzIds();
 
         // Slovak Public Holidays Map (Day.Month => Title)
         $slovakHolidays = [
@@ -63,6 +67,13 @@ class CalendarController extends Controller
                   ->orWhereNull('kapz_id')
                   ->orWhere('target_scope', $kapz->scope)
                   ->orWhere('target_scope', 'VŠETCI');
+            });
+        } elseif (!$selectedKapzId && $visibleKapzIds !== null) {
+            // Expert bez výberu: úlohy jeho KAPZ, všeobecné úlohy a úlohy, ktoré sám zadal.
+            $tasksQuery->where(function ($q) use ($visibleKapzIds, $user) {
+                $q->whereIn('kapz_id', $visibleKapzIds)
+                  ->orWhereNull('kapz_id')
+                  ->orWhere('assigned_by_user_id', $user->id);
             });
         } elseif ($selectedKapzId) {
             $tasksQuery->where(function ($q) use ($selectedKapzId) {
@@ -187,6 +198,9 @@ class CalendarController extends Controller
         // If KAPZ is creating a personal task for himself
         if (!$user->isAdmin() && !in_array($user->role, ['expert', 'manager'])) {
             $kapzId = $user->kapzProfile?->id;
+        } elseif ($user->isExpert()) {
+            // Expert zadáva úlohy iba svojim prideleným KAPZ.
+            abort_if(empty($kapzId) || $kapzId === 'ALL' || !$user->canAccessKapz($kapzId), 403, 'Úlohu môžete zadať iba prideleným KAPZ.');
         }
 
         CalendarTask::create([

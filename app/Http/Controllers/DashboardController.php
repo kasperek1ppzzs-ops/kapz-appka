@@ -32,7 +32,7 @@ class DashboardController extends Controller
         $periods = ReportingPeriod::orderBy('year', 'desc')->orderBy('month', 'desc')->get();
 
         if ($user->isSupervisor()) {
-            return $this->adminDashboard($period, $periods, $attendanceService);
+            return $this->adminDashboard($period, $periods, $attendanceService, $user->accessibleKapzIds());
         }
 
         return $this->kapzDashboard($user, $period, $periods, $attendanceService);
@@ -166,18 +166,26 @@ class DashboardController extends Controller
         ));
     }
 
-    private function adminDashboard($period, $periods, AttendanceCalculatorService $attendanceService)
+    /**
+     * Prehľad pre nadriadených. $visibleKapzIds = null → všetci KAPZ (admin, manažment),
+     * inak iba KAPZ pridelení expertovi.
+     */
+    private function adminDashboard($period, $periods, AttendanceCalculatorService $attendanceService, ?array $visibleKapzIds = null)
     {
-        $allKapz = KapzProfile::with('user')->get();
-        $allApz = ApzProfile::all();
-        $pendingPlans = TravelPlan::with('kapz')->where('status', 'SUBMITTED')->get();
-        $approvedPlansCount = TravelPlan::where('status', 'APPROVED')->count();
+        $scoped = fn ($query, string $column = 'kapz_id') => $visibleKapzIds === null ? $query : $query->whereIn($column, $visibleKapzIds);
+
+        $allKapz = $scoped(KapzProfile::with('user'), 'id')->get();
+        $allApz = $visibleKapzIds === null
+            ? ApzProfile::all()
+            : ApzProfile::whereHas('assignments', fn ($q) => $q->whereIn('kapz_id', $visibleKapzIds))->get();
+        $pendingPlans = $scoped(TravelPlan::with('kapz'))->where('status', 'SUBMITTED')->get();
+        $approvedPlansCount = $scoped(TravelPlan::query())->where('status', 'APPROVED')->count();
         $totalApzCount = $allApz->count();
         $totalKapzCount = $allKapz->count();
 
         // System-wide attendance stats for this period
-        $allKapzAttendance = AttendanceKapz::where('reporting_period_id', $period->id)->get();
-        $allApzAttendance = AttendanceApz::where('reporting_period_id', $period->id)->get();
+        $allKapzAttendance = $scoped(AttendanceKapz::query())->where('reporting_period_id', $period->id)->get();
+        $allApzAttendance = $scoped(AttendanceApz::query())->where('reporting_period_id', $period->id)->get();
 
         $totalKapzHours = $allKapzAttendance->sum('hours_worked');
         $totalApzHours = $allApzAttendance->sum('hours_worked');
@@ -190,9 +198,9 @@ class DashboardController extends Controller
         $totalOtherAbsences = $allApzAttendance->whereNotIn('status', ['work', 'holiday', 'pn', 'ocr', 'weekend'])->count();
 
         // Travel stats
-        $allPlans = TravelPlan::with('items')->where('reporting_period_id', $period->id)->get();
+        $allPlans = $scoped(TravelPlan::with('items'))->where('reporting_period_id', $period->id)->get();
         $totalPlannedKm = $allPlans->sum(fn($p) => $p->items->sum('estimated_km'));
-        $allExpenses = TravelExpense::all();
+        $allExpenses = $scoped(TravelExpense::query())->get();
         $totalActualKm = $allExpenses->sum('total_km');
         $totalTravelCosts = $allExpenses->sum('final_balance');
 

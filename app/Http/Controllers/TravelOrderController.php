@@ -13,7 +13,7 @@ class TravelOrderController extends Controller
     {
         $user = Auth::user();
         $orders = TravelOrder::with(['kapz', 'report', 'expense'])
-            ->when(!$user->isSupervisor(), fn ($q) => $q->where('kapz_id', $user->kapzProfile?->id))
+            ->when($user->accessibleKapzIds() !== null, fn ($q) => $q->whereIn('kapz_id', $user->accessibleKapzIds()))
             ->orderBy('id', 'desc')
             ->get();
         return view('travel.orders_index', compact('orders'));

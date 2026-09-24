@@ -22,11 +22,12 @@ class StatementController extends Controller
         $selectedPeriodId = $request->input('period_id', $periods->first()?->id ?? 1);
         $period = ReportingPeriod::findOrFail($selectedPeriodId);
 
-        $allKapzList = KapzProfile::with('user')->orderBy('full_name')->get();
+        $allKapzList = KapzProfile::visibleTo($user)->with('user')->orderBy('full_name')->get();
 
         if ($isExpertOrAdmin) {
             $selectedKapzId = $request->input('kapz_id', $allKapzList->first()?->id);
-            $kapz = KapzProfile::find($selectedKapzId) ?? $allKapzList->first();
+            $kapz = $allKapzList->firstWhere('id', (int) $selectedKapzId) ?? $allKapzList->first();
+            $selectedKapzId = $kapz?->id;
         } else {
             $kapz = $user->kapzProfile;
             $selectedKapzId = $kapz?->id;

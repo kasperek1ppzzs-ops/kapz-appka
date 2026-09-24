@@ -24,8 +24,10 @@ class TravelPlanController extends Controller
 
         // 1. Role: Admin / Expert pre terén
         if ($user->isSupervisor()) {
+            $visible = $this->visibleKapzIds();
             $plans = TravelPlan::with(['kapz.user', 'items', 'reportingPeriod', 'reviewedBy'])
                 ->where('reporting_period_id', $period->id)
+                ->when($visible !== null, fn ($q) => $q->whereIn('kapz_id', $visible))
                 ->get();
             return view('travel.admin_index', compact('plans', 'period', 'periods'));
         }
@@ -252,6 +254,7 @@ class TravelPlanController extends Controller
     public function approve(Request $request, TravelWorkflowService $workflowService)
     {
         $plan = TravelPlan::findOrFail($request->plan_id);
+        $this->authorizeKapzAccess($plan->kapz_id);
         if ($workflowService->approvePlan($plan, $request->admin_notes)) {
             return back()->with('success', "Plán pracovných ciest pre {$plan->kapz->full_name} bol schválený v rámci ZFK.");
         }
@@ -267,6 +270,7 @@ class TravelPlanController extends Controller
         ]);
 
         $plan = TravelPlan::findOrFail($request->plan_id);
+        $this->authorizeKapzAccess($plan->kapz_id);
         if ($workflowService->returnPlan($plan, $request->admin_notes)) {
             return back()->with('success', "Plán bol vrátený koordinátorovi {$plan->kapz->full_name} na doplnenie.");
         }

@@ -125,7 +125,7 @@ class AttendanceController extends Controller
         $assignedApzs = $kapz->assignedApzsForDate($refDate);
 
         if ($assignedApzs->isEmpty()) {
-            if (!Auth::user()->isSupervisor()) {
+            if (Auth::user()->accessibleKapzIds() !== null) {
                 return redirect()->route('dashboard')->with('error', 'V tomto období nemáte pridelených žiadnych APZ.');
             }
             $assignedApzs = ApzProfile::all();
@@ -290,7 +290,7 @@ class AttendanceController extends Controller
         $refDate = sprintf('%04d-%02d-15', $period->year, $period->month);
         $assignedApzs = $kapz->assignedApzsForDate($refDate);
 
-        if ($assignedApzs->isEmpty() && Auth::user()->isSupervisor()) {
+        if ($assignedApzs->isEmpty() && Auth::user()->accessibleKapzIds() === null) {
             $assignedApzs = ApzProfile::all();
         }
 
