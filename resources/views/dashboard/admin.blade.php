@@ -28,6 +28,7 @@
                 </select>
             </form>
 
+            @if(Auth::user()->isAdmin())
             <form action="{{ route('admin.period.toggle_lock', $period->id) }}" method="POST">
                 @csrf
                 <button type="submit" class="px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm transition flex items-center space-x-1.5
@@ -35,6 +36,7 @@
                     <span>{{ $period->is_closed ? '🔓 Odomknúť Mesiac' : '🔒 Uzamknúť Mesiac' }}</span>
                 </button>
             </form>
+            @endif
         </div>
     </div>
 
@@ -120,14 +122,18 @@
                         <span class="text-lg">📊</span>
                         <span>Manažérske Reporty</span>
                     </a>
+                    @if(Auth::user()->isAdmin())
                     <a href="{{ route('admin.assignments.index') }}" class="p-3 bg-slate-50 hover:bg-amber-50 hover:text-amber-700 rounded-xl text-xs font-bold text-center transition border border-slate-200 flex flex-col items-center justify-center space-y-1">
                         <span class="text-lg">⚙️</span>
                         <span>Priradenia APZ</span>
                     </a>
+                    @endif
+                    @if(Auth::user()->isAdmin())
                     <a href="{{ route('admin.audit_logs') }}" class="p-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-bold text-center transition border border-slate-200 flex flex-col items-center justify-center space-y-1">
                         <span class="text-lg">🛡️</span>
                         <span>Auditné Logy</span>
                     </a>
+                    @endif
                     <a href="{{ route('contacts.index') }}" class="p-3 bg-slate-50 hover:bg-blue-50 hover:text-blue-700 rounded-xl text-xs font-bold text-center transition border border-slate-200 flex flex-col items-center justify-center space-y-1">
                         <span class="text-lg">👥</span>
                         <span>Zoznam Kontaktov</span>

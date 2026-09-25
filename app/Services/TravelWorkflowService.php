@@ -4,76 +4,59 @@ namespace App\Services;
 
 use App\Models\TravelPlan;
 use App\Models\AuditLog;
+use App\Models\KmLimit;
+use App\Models\TravelPurpose;
 use Illuminate\Support\Facades\Auth;
 
 class TravelWorkflowService
 {
-    public const OFFICIAL_PURPOSES = [
-        'Odborná príprava, vedenie a konzultácia APZ pri plnení cieľov aktivít NP Zdravé komunity.',
-        'Pravidelné stretnutia KAPZ s APZ v rámci celej spádovej oblasti a riešenie a výmena informácií pri realizácii aktivít projektu v jednotlivých lokalitách.',
-        'Priama účasť KAPZ pri príprave a samotnej realizácii programov podpory zdravia v marginalizovaných rómskych komunitách.',
-        'Priama účasť KAPZ pri riešení krízových situácií v teréne.',
-        'Priama účasť Koordinátora asistentov podpory zdravia na pracovných stretnutiach týkajúcich sa prezentácie činnosti projektu.',
-        'Účasť KAPZ na školení alebo zabezpečenie účasti APZ na vzdelávacích aktivitách projektu (školenie, prednáška).',
-        'Vzájomná spolupráca s iným koordinátorom (koordinátormi) asistentov podpory zdravia pri zabezpečení cieľov a aktivít NP ZK.',
-    ];
-
-    public const REGION_KM_LIMITS = [
-        'Banská Bystrica' => 1250,
-        'Zvolen' => 1250,
-        'Michalovce' => 535,
-        'Veľké Kapušany' => 300,
-        'Nitra' => 1365,
-        'Veľký Krtíš' => 1035,
-        'Snina' => 650,
-        'Bardejov' => 420,
-        'Stará Ľubovňa' => 255,
-        'Humenné' => 385,
-        'Vranov nad Topľou' => 240,
-        'Rimavská Sobota' => 970,
-        'Fiľakovo' => 340,
-        'Trebišov' => 930,
-        'Gelnica' => 760,
-        'Prešov' => 520,
-        'Poprad' => 400,
-        'Poprad - okolie' => 745,
-        'Spišská Nová Ves' => 525,
-        'Levoča' => 525,
-        'Sabinov' => 245,
-        'Kežmarok' => 365,
-        'Košice-okolie' => 530,
-        'Rožňava' => 455,
-        'Revúca' => 620,
-        'Košice' => 380,
-        'Svidník' => 695,
-        'Malacky' => 950,
-        'Senica' => 340,
-        'Veľký Šariš' => 340,
-        'Trhovište' => 440,
-        'Nové Zámky' => 770,
-        'Ľubotín' => 275,
-        'Moldava nad Bodvou' => 390,
-    ];
-
+    /**
+     * Oficiálne účely ciest KAPZ (Excel GENERATOR!Q14:Q32) – krátky názov ako v Pláne (stĺpec H).
+     *
+     * @return array<int, string>
+     */
     public function getOfficialPurposes(): array
     {
-        return self::OFFICIAL_PURPOSES;
+        return TravelPurpose::where('role', 'KAPZ')
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->pluck('title')
+            ->all();
     }
 
+    /**
+     * Mesačný limit km podľa pôsobnosti (Excel: SUMIF nad hárkom „limity a prac. dni“).
+     * Hľadá sa presná zhoda názvu pôsobnosti – nie podreťazec, aby „Košice“ nedostali
+     * limit „Košice-okolie“. Neznáma pôsobnosť = 0 (limit nie je stanovený), rovnako ako v Exceli.
+     */
     public function getLimitForScope(?string $scope): float
     {
-        if (!$scope) {
-            return 500.0;
+        $key = self::normalizeScope($scope);
+        if ($key === '') {
+            return 0.0;
         }
 
-        foreach (self::REGION_KM_LIMITS as $region => $limit) {
-            if (mb_stripos($scope, $region) !== false || mb_stripos($region, $scope) !== false) {
-                return (float) $limit;
+        foreach (KmLimit::all() as $limit) {
+            if (self::normalizeScope($limit->scope) === $key) {
+                return (float) $limit->monthly_km;
             }
         }
 
-        return 500.0;
+        return 0.0;
     }
+
+    /**
+     * „Košice - okolie“ = „Košice-okolie“, „Velký Krtíš“ = „Veľký Krtíš“, bez ohľadu na veľkosť písmen.
+     */
+    public static function normalizeScope(?string $scope): string
+    {
+        $value = mb_strtolower(trim((string) $scope));
+        $value = preg_replace('/\s*-\s*/u', '-', $value);
+        $value = preg_replace('/\s+/u', ' ', $value);
+
+        return str_replace('velký', 'veľký', $value);
+    }
+
     /**
      * Submit travel plan for approval.
      */

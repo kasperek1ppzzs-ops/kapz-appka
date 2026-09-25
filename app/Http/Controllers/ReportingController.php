@@ -15,8 +15,8 @@ class ReportingController extends Controller
         $period = ReportingPeriod::findOrFail($periodId);
         $periods = ReportingPeriod::orderBy('year', 'desc')->orderBy('month', 'desc')->get();
 
-        $attendanceSummary = $reportingService->getAttendanceSummary($period);
-        $travelKmSummary = $reportingService->getTravelKmSummary($period);
+        $attendanceSummary = $reportingService->getAttendanceSummary($period, $this->visibleKapzIds());
+        $travelKmSummary = $reportingService->getTravelKmSummary($period, $this->visibleKapzIds());
 
         return view('reports.index', compact('period', 'periods', 'attendanceSummary', 'travelKmSummary'));
     }
@@ -24,7 +24,7 @@ class ReportingController extends Controller
     public function exportCsv(Request $request, ReportingService $reportingService)
     {
         $period = ReportingPeriod::findOrFail($request->input('period_id', 1));
-        $travelKmSummary = $reportingService->getTravelKmSummary($period);
+        $travelKmSummary = $reportingService->getTravelKmSummary($period, $this->visibleKapzIds());
 
         $response = new StreamedResponse(function () use ($travelKmSummary) {
             $handle = fopen('php://output', 'w');

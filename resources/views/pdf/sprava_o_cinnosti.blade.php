@@ -23,13 +23,35 @@
         <strong>Obdobie:</strong> {{ $report->reportingPeriod->formatted_name }}
     </div>
 
-    <div class="section-title">1. STRUČNÝ PREHĽAD VYKONANEJ ČINNOSTI A AKTIVÍT</div>
+    @isset($limitUsage)
+        {{-- Excel „Správa o pracovnej činnosti“ H11–H13: limit podľa pôsobnosti, najazdené km z CP (Vyúčtovanie VD!I92), zostatok --}}
+        <div class="section-title">1. ČERPANIE MESAČNÉHO LIMITU</div>
+        <table class="metrics-table">
+            <tr><td>Mesačný limit kilometrov pracovných ciest podľa uvedenej pôsobnosti</td><td style="text-align: right; font-weight: bold;">{{ number_format($limitUsage['limit'], 1, ',', ' ') }} km</td></tr>
+            <tr><td>Najazdené kilometre (cestovný príkaz{{ $limitUsage['order'] ? ' č. ' . $limitUsage['order']->order_number : '' }})</td><td style="text-align: right; font-weight: bold;">{{ number_format($limitUsage['driven'], 1, ',', ' ') }} km</td></tr>
+            <tr><td>Zostatok</td><td style="text-align: right; font-weight: bold;">{{ number_format($limitUsage['remaining'], 1, ',', ' ') }} km</td></tr>
+        </table>
+
+        @if($limitUsage['days']->isNotEmpty())
+            <div class="section-title">PRACOVNÉ CESTY V MESIACI</div>
+            <table class="metrics-table">
+                <thead><tr><th>Dátum</th><th>Miesto</th><th>Správa z pracovnej cesty</th></tr></thead>
+                <tbody>
+                    @foreach($limitUsage['days'] as $d)
+                        <tr><td>{{ $d['date']->format('d.m.Y') }}</td><td>{{ $d['places'] }}</td><td>{{ \Illuminate\Support\Str::limit($d['report_text'], 160) }}</td></tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+    @endisset
+
+    <div class="section-title">{{ isset($limitUsage) ? '2' : '1' }}. STRUČNÝ PREHĽAD VYKONANEJ ČINNOSTI A AKTIVÍT</div>
     <div class="body-text">
         {{ $report->summary_text ?? 'Bez popisu činnosti.' }}
     </div>
 
     @if($report->metrics_json)
-        <div class="section-title">2. KVANITATÍVNE METRIKY A VÝKONNOSŤ INŠTITÚCIE</div>
+        <div class="section-title">{{ isset($limitUsage) ? '3' : '2' }}. KVANTITATÍVNE METRIKY A VÝKONNOSŤ</div>
         <table class="metrics-table">
             <thead>
                 <tr>

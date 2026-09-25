@@ -9,6 +9,7 @@ use App\Models\ApzProfile;
 use App\Models\ReportingPeriod;
 use App\Models\AttendanceKapz;
 use App\Models\AttendanceApz;
+use App\Enums\AttendanceStatus;
 use Carbon\Carbon;
 
 class ArrivalDepartureBookService
@@ -39,13 +40,13 @@ class ArrivalDepartureBookService
         if ($personType === 'KAPZ') {
             $personName = $kapz->full_name;
             $personalNumber = $kapz->personal_number;
-            $location = $kapz->base_municipality ?? 'Banská Bystrica';
-            $approverName = $kapz->region_expert ?? 'Mgr. Ľudmila Grešková';
+            $location = $kapz->scope;               // KNIHY!K5 = HLASENIE!B2
+            $approverName = $kapz->region_expert;   // „Schválil“ – nadriadený podľa profilu
         } else {
             $apz = ApzProfile::findOrFail($personId);
             $personName = $apz->full_name;
             $personalNumber = $apz->personal_number;
-            $location = $apz->community_name ?? 'Lokalita APZ';
+            $location = $apz->scope;                // KNIHY!K47 = HLASENIE!C2
             $approverName = $kapz->full_name;
         }
 
@@ -60,7 +61,7 @@ class ArrivalDepartureBookService
                 'personal_number' => $personalNumber,
                 'full_name' => $personName,
                 'location' => $location,
-                'project_code' => '401405DUQ8',
+                'project_code' => config('kapz.itms_code'),
                 'approver_name' => $approverName,
                 'status' => 'DRAFT',
             ]
@@ -101,100 +102,18 @@ class ArrivalDepartureBookService
             }
         }
 
-        // Slovak Public Holidays
-        $holidays = [
-            '01-01', '01-06', '05-01', '05-08', '07-05', '08-29', '09-01', '09-15', '11-01', '11-17', '12-24', '12-25', '12-26'
-        ];
-
         for ($day = 1; $day <= $daysInMonth; $day++) {
             $date = Carbon::create($period->year, $period->month, $day);
-            $isWeekend = $date->isWeekend();
-            $monthDay = $date->format('m-d');
-            $isOfficialHoliday = in_array($monthDay, $holidays);
-
-            $att = $attendanceMap[$day] ?? null;
-
-            $arrivalHour = null;
-            $arrivalMin = null;
-            $departureHour = null;
-            $departureMin = null;
-            $breakDepHour = null;
-            $breakDepMin = null;
-            $breakArrHour = null;
-            $breakArrMin = null;
-            $breakReason = null;
-            $visitedLocation = null; // As requested, visited locations are kept empty
-            $approvedBy = null;
-            $note = null;
-
-            if ($att) {
-                $status = strtoupper($att->status ?? '');
-                $hoursWorked = (float)($att->hours_worked ?? 0);
-
-                if ($status === 'SVIATOK' || $isOfficialHoliday) {
-                    $note = 'Sviatok';
-                } elseif ($status === 'DOVOLENKA') {
-                    $breakReason = 'Dovolenka';
-                    $note = 'Dovolenka';
-                } elseif ($status === 'PN') {
-                    $breakReason = 'PN';
-                    $note = 'PN';
-                } elseif ($status === 'OCR' || $status === 'OČR') {
-                    $breakReason = 'OČR';
-                    $note = 'OČR';
-                } elseif ($status === 'LEKAR' || $status === 'LEKÁR') {
-                    $breakReason = 'Lekár';
-                    $note = 'Lekár';
-                } elseif ($hoursWorked > 0 || $status === 'WORK' || $status === 'PRÁCA') {
-                    // Standard workday: 8:00 - 16:00, lunch break 12:00 - 12:30 (net 7.5h)
-                    $arrivalHour = '08';
-                    $arrivalMin = '00';
-                    $departureHour = '16';
-                    $departureMin = '00';
-                    $breakDepHour = '12';
-                    $breakDepMin = '00';
-                    $breakArrHour = '12';
-                    $breakArrMin = '30';
-                    $breakReason = 'Obed';
-                } elseif ($isWeekend) {
-                    $note = 'Víkend';
-                }
-            } else {
-                if ($isOfficialHoliday) {
-                    $note = 'Sviatok';
-                } elseif ($isWeekend) {
-                    $note = 'Víkend';
-                } else {
-                    // Default weekday if no explicit attendance record yet
-                    $arrivalHour = '08';
-                    $arrivalMin = '00';
-                    $departureHour = '16';
-                    $departureMin = '00';
-                    $breakDepHour = '12';
-                    $breakDepMin = '00';
-                    $breakArrHour = '12';
-                    $breakArrMin = '30';
-                    $breakReason = 'Obed';
-                }
-            }
-
-            ArrivalDepartureBookItem::create([
-                'book_id' => $book->id,
-                'day_number' => $day,
-                'record_date' => $date->format('Y-m-d'),
-                'arrival_hour' => $arrivalHour,
-                'arrival_minute' => $arrivalMin,
-                'departure_hour' => $departureHour,
-                'departure_minute' => $departureMin,
-                'break_departure_hour' => $breakDepHour,
-                'break_departure_minute' => $breakDepMin,
-                'break_arrival_hour' => $breakArrHour,
-                'break_arrival_minute' => $breakArrMin,
-                'break_reason' => $breakReason,
-                'visited_location' => $visitedLocation,
-                'approved_by' => $approvedBy,
-                'note' => $note,
-            ]);
+            ArrivalDepartureBookItem::create(array_merge(
+                $this->bookRowFromAttendance($attendanceMap[$day] ?? null),
+                [
+                    'book_id' => $book->id,
+                    'day_number' => $day,
+                    'record_date' => $date->format('Y-m-d'),
+                    'visited_location' => null, // Excel KNIHY!K – vypĺňa sa ručne
+                    'approved_by' => null,      // Excel KNIHY!L – vypĺňa sa ručne
+                ]
+            ));
         }
     }
 
@@ -215,5 +134,44 @@ class ArrivalDepartureBookService
         }
 
         return $books;
+    }
+
+    /**
+     * Riadok knihy podľa vzorcov hárku KNIHY (riadok 9):
+     *  - B–J: 8:00 / 16:00 / 12:00–12:30 „Obed“ iba ak odpracované hodiny ≥ 7,5
+     *    (`=IF(N(EVIDENCIA_KAPZ!E8)>=7.5,8,"")`),
+     *  - M (Poznámka): text neodpracovaného dňa z evidencie (`=EVIDENCIA_KAPZ!F8`),
+     *  - víkend, polovičný deň bez času a deň bez záznamu zostávajú bez časov.
+     */
+    public function bookRowFromAttendance($attendance): array
+    {
+        $row = array_fill_keys([
+            'arrival_hour', 'arrival_minute', 'departure_hour', 'departure_minute',
+            'break_departure_hour', 'break_departure_minute', 'break_arrival_hour',
+            'break_arrival_minute', 'break_reason', 'note',
+        ], null);
+
+        if (!$attendance) {
+            return $row;
+        }
+
+        $status = AttendanceStatus::fromCode($attendance->status);
+        $worked = $status === AttendanceStatus::Work
+            ? (float) $attendance->hours_worked
+            : $status->workedHours();
+
+        if ($worked >= AttendanceStatus::FULL_DAY_HOURS) {
+            $row = array_merge($row, [
+                'arrival_hour' => '08', 'arrival_minute' => '00',
+                'departure_hour' => '16', 'departure_minute' => '00',
+                'break_departure_hour' => '12', 'break_departure_minute' => '00',
+                'break_arrival_hour' => '12', 'break_arrival_minute' => '30',
+                'break_reason' => 'Obed',
+            ]);
+        }
+
+        $row['note'] = $status->unworkedText();
+
+        return $row;
     }
 }

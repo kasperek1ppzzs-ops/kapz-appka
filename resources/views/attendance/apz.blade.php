@@ -13,7 +13,7 @@
                     {{ $apz->full_name }} ({{ $apz->personal_number }})
                 </span>
                 <span class="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold">
-                    📍 {{ $apz->community_scope }}
+                    📍 {{ $apz->scope }}
                 </span>
             </div>
             <p class="text-xs text-slate-500 mt-1">Priradený KAPZ: <strong>{{ $kapz->full_name }}</strong> ({{ $kapz->personal_number }}) | Sledované obdobie: <strong>{{ $period->formatted_name }}</strong> (Norma 7,5h/deň)</p>
@@ -142,6 +142,18 @@
     </div>
 
     <!-- Attendance Grid Form (Identical to KAPZ Form) -->
+    <!-- Kontrola fondu pracovného času (Excel: EVIDENCIA_KAPZ!R39 vs. Kalendár) -->
+    <div class="mb-4 p-3 rounded-xl border text-xs font-semibold {{ $summary['fund_ok'] ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-900' }}">
+        Fond pracovného času: {{ number_format($summary['fund_hours'], 2, ',', '') }} h ({{ $summary['total_working_days'] }} prac. dní)
+        · odpracované {{ number_format($summary['total_work_hours'], 2, ',', '') }} h
+        + neodpracované {{ number_format($summary['total_absence_hours'], 2, ',', '') }} h
+        @if($summary['fund_ok'])
+            – ✅ fond sedí
+        @else
+            – ⚠️ rozdiel {{ number_format($summary['fund_difference'], 2, ',', '') }} h (doplňte chýbajúce dni)
+        @endif
+    </div>
+
     <form action="{{ route('attendance.apz.save') }}" method="POST">
         @csrf
         <input type="hidden" name="apz_id" value="{{ $apz->id }}">
@@ -199,7 +211,7 @@
                                 $dayNum = date('N', strtotime($entry->date));
                                 $slovakDayName = $slovakDays[$dayNum] ?? '';
                                 $isWeekend = in_array($dayNum, [6, 7]);
-                                $isWork = ($entry->status == 'work');
+                                $isWork = \App\Enums\AttendanceStatus::fromCode($entry->status)->hasWorkplace();
                             @endphp
                             <tr class="{{ $isWeekend || $entry->status == 'weekend' ? 'bg-amber-100/90 text-amber-950 font-bold border-l-4 border-amber-500' : '' }} hover:bg-blue-50/50 transition">
                                 <td class="p-3 font-bold {{ $isWeekend || $entry->status == 'weekend' ? 'text-amber-900' : 'text-slate-900' }}">
@@ -212,8 +224,8 @@
                                     <input type="text"
                                         name="entries[{{ $entry->date }}][workplace]"
                                         id="workplace_{{ $entry->date }}"
-                                        value="{{ $isWork ? ($entry->workplace ?: $apz->community_scope) : '' }}"
-                                        placeholder="{{ $isWork ? 'Napr. ' . $apz->community_scope : '' }}"
+                                        value="{{ $isWork ? ($entry->workplace ?: $apz->scope) : '' }}"
+                                        placeholder="{{ $isWork ? 'Napr. ' . $apz->scope : '' }}"
                                         class="workplace-input w-full p-2 border border-slate-300 rounded-lg text-xs {{ !$isWork ? 'bg-slate-100/70 text-slate-400 cursor-not-allowed' : 'bg-white font-medium text-slate-800' }}">
                                 </td>
                                 <td class="p-3">
@@ -222,20 +234,7 @@
                                         data-date="{{ $entry->date }}"
                                         data-weekend="{{ $isWeekend ? '1' : '0' }}"
                                         onchange="handleStatusChange(this)">
-                                        <option value="work" {{ $entry->status == 'work' ? 'selected' : '' }}>Práca</option>
-                                        <option value="holiday" {{ $entry->status == 'holiday' ? 'selected' : '' }}>Dovolenka</option>
-                                        <option value="pn" {{ $entry->status == 'pn' ? 'selected' : '' }}>PN (Prácaneschopnosť)</option>
-                                        <option value="ocr" {{ $entry->status == 'ocr' ? 'selected' : '' }}>OČR (Ošetrovanie člena rodiny)</option>
-                                        <option value="doctor" {{ $entry->status == 'doctor' ? 'selected' : '' }}>Lekár</option>
-                                        <option value="doctor_family" {{ $entry->status == 'doctor_family' ? 'selected' : '' }}>Lekár - doprovod</option>
-                                        <option value="substitute_leave" {{ $entry->status == 'substitute_leave' ? 'selected' : '' }}>Náhradné voľno</option>
-                                        <option value="paid_absence" {{ $entry->status == 'paid_absence' ? 'selected' : '' }}>Prekážky v práci - platené</option>
-                                        <option value="unpaid_absence" {{ $entry->status == 'unpaid_absence' ? 'selected' : '' }}>Prekážky v práci - neplatené</option>
-                                        <option value="funeral" {{ $entry->status == 'funeral' ? 'selected' : '' }}>Pohreb</option>
-                                        <option value="blood_donation" {{ $entry->status == 'blood_donation' ? 'selected' : '' }}>Darovanie krvi</option>
-                                        <option value="public_holiday" {{ $entry->status == 'public_holiday' ? 'selected' : '' }}>Sviatok</option>
-                                        <option value="no_communication" {{ $entry->status == 'no_communication' ? 'selected' : '' }}>Nekomunikuje</option>
-                                        <option value="weekend" {{ $entry->status == 'weekend' ? 'selected' : '' }}>Víkend</option>
+                                        @include('attendance._status_options', ['current' => $entry->status])
                                     </select>
                                 </td>
                                 <td class="p-3">
@@ -263,7 +262,8 @@
 
 <!-- Helper Script for APZ Workplace & Auto Hours (7.5h) -->
 <script>
-    const defaultWorkplaceApz = @json($apz->community_scope ?: $apz->scope);
+    const attendanceStatusMeta = @json(collect(\App\Enums\AttendanceStatus::cases())->mapWithKeys(fn ($s) => [$s->value => ['worked' => $s->workedHours(), 'workplace' => $s->hasWorkplace()]]));
+    const defaultWorkplaceApz = @json($apz->scope);
     const stdHours = {{ ($apz->employment_ratio ?? 1.0) * 7.50 }};
 
     function handleStatusChange(selectEl) {
@@ -272,8 +272,9 @@
         const hoursInput = document.getElementById('hours_' + date);
         const workplaceInput = document.getElementById('workplace_' + date);
 
-        if (selectEl.value === 'work') {
-            hoursInput.value = stdHours.toFixed(1);
+        const meta = attendanceStatusMeta[selectEl.value] || {worked: 0, workplace: false};
+        if (meta.workplace) {
+            hoursInput.value = (selectEl.value === 'work' ? stdHours : meta.worked).toFixed(2);
             workplaceInput.value = defaultWorkplaceApz;
             workplaceInput.classList.remove('bg-slate-100/70', 'text-slate-400', 'cursor-not-allowed');
             workplaceInput.classList.add('bg-white', 'font-medium', 'text-slate-800');

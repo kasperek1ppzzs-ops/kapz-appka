@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\TravelSegmentService;
+use App\Services\TravelOrderService;
 use App\Models\KapzProfile;
 use App\Models\ApzProfile;
 use App\Models\ReportingPeriod;
@@ -64,8 +66,11 @@ class PdfGeneratorService
      */
     public function generateTravelPlanPdf(TravelPlan $plan, ?int $weekNumber = null)
     {
+        $plan->load(['kapz', 'reportingPeriod', 'items.targetApz', 'items.segments', 'reviewedBy']);
+
         $pdf = Pdf::loadView('pdf.plan_pracovnych_ciest', [
-            'plan' => $plan->load(['kapz', 'reportingPeriod', 'items.targetApz', 'reviewedBy']),
+            'plan' => $plan,
+            'weeks' => app(TravelSegmentService::class)->weeksFor($plan),
             'selectedWeek' => $weekNumber,
         ])->setPaper('a4', 'portrait');
 
@@ -137,8 +142,11 @@ class PdfGeneratorService
      */
     public function generateActivityReportPdf(ActivityReport $report)
     {
+        $report->load(['kapz', 'reportingPeriod']);
+
         $pdf = Pdf::loadView('pdf.sprava_o_cinnosti', [
-            'report' => $report->load(['kapz', 'reportingPeriod']),
+            'report' => $report,
+            'limitUsage' => app(TravelOrderService::class)->limitUsage($report->kapz, $report->reportingPeriod),
         ])->setPaper('a4', 'portrait');
 
         return $pdf;

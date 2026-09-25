@@ -27,4 +27,24 @@ class ApzProfile extends Model
     {
         return $this->hasMany(AttendanceApz::class, 'apz_id');
     }
+
+    /**
+     * Lokalita APZ = pôsobnosť (HLASENIE riadok 2). Samostatný stĺpec neexistuje,
+     * starší kód a šablóny ho však používajú.
+     */
+    public function getCommunityScopeAttribute(): ?string
+    {
+        return $this->scope;
+    }
+
+    public function getCommunityNameAttribute(): ?string
+    {
+        return $this->scope;
+    }
+
+    /** Excel matica počíta vždy s plným úväzkom 7,5 h/deň. */
+    public function getEmploymentRatioAttribute(): float
+    {
+        return 1.0;
+    }
 }

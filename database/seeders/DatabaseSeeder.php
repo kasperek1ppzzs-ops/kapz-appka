@@ -17,6 +17,7 @@ use App\Models\TravelExpense;
 use App\Models\Statement;
 use App\Models\ActivityReport;
 use Illuminate\Database\Seeder;
+use App\Models\ExpertKapzAssignment;
 use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
@@ -32,6 +33,17 @@ class DatabaseSeeder extends Seeder
             'personal_number' => 'ADMIN-001',
             'scope' => 'Ústredie',
             'phone' => '+421 900 000 000',
+        ]);
+
+        // 1b. Expert pre terén – schvaľuje plány ciest a vidí iba KAPZ, ktorých mu pridelí admin
+        $expert = User::create([
+            'name' => 'Mgr. Ľudmila Grešková',
+            'email' => 'expert@kapz.sk',
+            'password' => Hash::make('password'),
+            'role' => 'expert',
+            'personal_number' => 'EXP-001',
+            'scope' => 'Banská Bystrica',
+            'phone' => '+421 900 000 001',
         ]);
 
         // 2. KAPZ User 1
@@ -189,6 +201,14 @@ class DatabaseSeeder extends Seeder
             'email' => 'silvia.berkyova@apz.sk',
             'address' => 'Závadka nad Hronom 23',
             'is_active' => true,
+        ]);
+
+        // 3b. Pridelenie KAPZ Expertovi pre terén (Novák → Grešková; Horváthová zatiaľ bez experta)
+        ExpertKapzAssignment::create([
+            'expert_user_id' => $expert->id,
+            'kapz_id' => $profileKapz1->id,
+            'valid_from' => '2026-01-01',
+            'valid_to' => null,
         ]);
 
         // 4. Assignments

@@ -57,11 +57,23 @@
         </div>
         <div class="p-3 bg-slate-800/80 rounded-xl">
             <div class="text-xs text-slate-400 font-bold uppercase">PN / OČR / Prekážky</div>
-            <div class="text-xl font-black text-rose-400 mt-1">{{ $summary['pn_days'] + $summary['ocr_days'] + $summary['nv_days'] + ($summary['doctor_days'] ?? 0) + ($summary['doctor_family_days'] ?? 0) }} dní</div>
+            <div class="text-xl font-black text-rose-400 mt-1">{{ $summary['pn_days'] + $summary['ocr_days'] + $summary['nv_days'] + $summary['md_rd_days'] + $summary['kz_days'] + $summary['other_days'] + ($summary['doctor_days'] ?? 0) + ($summary['doctor_family_days'] ?? 0) }} dní</div>
         </div>
     </div>
 
     <!-- Attendance Entry Grid Form -->
+    <!-- Kontrola fondu pracovného času (Excel: EVIDENCIA_KAPZ!R39 vs. Kalendár) -->
+    <div class="mb-4 p-3 rounded-xl border text-xs font-semibold {{ $summary['fund_ok'] ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-900' }}">
+        Fond pracovného času: {{ number_format($summary['fund_hours'], 2, ',', '') }} h ({{ $summary['total_working_days'] }} prac. dní)
+        · odpracované {{ number_format($summary['total_work_hours'], 2, ',', '') }} h
+        + neodpracované {{ number_format($summary['total_absence_hours'], 2, ',', '') }} h
+        @if($summary['fund_ok'])
+            – ✅ fond sedí
+        @else
+            – ⚠️ rozdiel {{ number_format($summary['fund_difference'], 2, ',', '') }} h (doplňte chýbajúce dni)
+        @endif
+    </div>
+
     <form action="{{ route('attendance.kapz.save') }}" method="POST">
         @csrf
         <input type="hidden" name="kapz_id" value="{{ $kapz->id }}">
@@ -111,7 +123,7 @@
                                 $dayNum = date('N', strtotime($entry->date));
                                 $slovakDayName = $slovakDays[$dayNum] ?? '';
                                 $isWeekend = in_array($dayNum, [6, 7]);
-                                $isWork = ($entry->status == 'work');
+                                $isWork = \App\Enums\AttendanceStatus::fromCode($entry->status)->hasWorkplace();
                             @endphp
                             <tr class="{{ $isWeekend || $entry->status == 'weekend' ? 'bg-amber-100/90 text-amber-950 font-bold border-l-4 border-amber-500' : '' }} hover:bg-blue-50/50 transition">
                                 <td class="p-3 font-bold {{ $isWeekend || $entry->status == 'weekend' ? 'text-amber-900' : 'text-slate-900' }}">
@@ -134,20 +146,7 @@
                                         data-date="{{ $entry->date }}"
                                         data-weekend="{{ $isWeekend ? '1' : '0' }}"
                                         onchange="handleKapzStatusChange(this)">
-                                        <option value="work" {{ $entry->status == 'work' ? 'selected' : '' }}>Práca</option>
-                                        <option value="holiday" {{ $entry->status == 'holiday' ? 'selected' : '' }}>Dovolenka</option>
-                                        <option value="pn" {{ $entry->status == 'pn' ? 'selected' : '' }}>PN (Prácaneschopnosť)</option>
-                                        <option value="ocr" {{ $entry->status == 'ocr' ? 'selected' : '' }}>OČR (Ošetrovanie)</option>
-                                        <option value="doctor" {{ $entry->status == 'doctor' ? 'selected' : '' }}>Lekár / Ošetrenie</option>
-                                        <option value="doctor_family" {{ $entry->status == 'doctor_family' ? 'selected' : '' }}>Lekár - doprovod rodiny</option>
-                                        <option value="nv" {{ $entry->status == 'nv' ? 'selected' : '' }}>Náhradné voľno</option>
-                                        <option value="paid_absence" {{ $entry->status == 'paid_absence' ? 'selected' : '' }}>Prekážky v práci (platené)</option>
-                                        <option value="unpaid_absence" {{ $entry->status == 'unpaid_absence' ? 'selected' : '' }}>Prekážky v práci (neplatené)</option>
-                                        <option value="funeral" {{ $entry->status == 'funeral' ? 'selected' : '' }}>Pohreb</option>
-                                        <option value="blood_donation" {{ $entry->status == 'blood_donation' ? 'selected' : '' }}>Darovanie krvi</option>
-                                        <option value="public_holiday" {{ $entry->status == 'public_holiday' ? 'selected' : '' }}>Sviatok</option>
-                                        <option value="no_communication" {{ $entry->status == 'no_communication' ? 'selected' : '' }}>Nekomunikuje</option>
-                                        <option value="weekend" {{ $entry->status == 'weekend' ? 'selected' : '' }}>Víkend</option>
+                                        @include('attendance._status_options', ['current' => $entry->status])
                                     </select>
                                 </td>
                                 <td class="p-3">
@@ -174,6 +173,7 @@
 
 <!-- Helper Script for KAPZ Workplace & Auto Hours (7.5h) -->
 <script>
+    const attendanceStatusMeta = @json(collect(\App\Enums\AttendanceStatus::cases())->mapWithKeys(fn ($s) => [$s->value => ['worked' => $s->workedHours(), 'workplace' => $s->hasWorkplace()]]));
     const defaultWorkplaceKapz = @json($kapz->scope ?: 'Banská Bystrica');
     const stdHoursKapz = {{ ($kapz->employment_ratio ?? 1.0) * 7.50 }};
 
@@ -183,8 +183,9 @@
         const hoursInput = document.getElementById('hours_' + date);
         const workplaceInput = document.getElementById('workplace_' + date);
 
-        if (selectEl.value === 'work') {
-            hoursInput.value = stdHoursKapz.toFixed(1);
+        const meta = attendanceStatusMeta[selectEl.value] || {worked: 0, workplace: false};
+        if (meta.workplace) {
+            hoursInput.value = (selectEl.value === 'work' ? stdHoursKapz : meta.worked).toFixed(2);
             workplaceInput.value = defaultWorkplaceKapz;
             workplaceInput.classList.remove('bg-slate-100/70', 'text-slate-400', 'cursor-not-allowed');
             workplaceInput.classList.add('bg-white', 'font-medium', 'text-slate-800');

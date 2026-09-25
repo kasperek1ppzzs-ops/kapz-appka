@@ -22,11 +22,12 @@ class StatementController extends Controller
         $selectedPeriodId = $request->input('period_id', $periods->first()?->id ?? 1);
         $period = ReportingPeriod::findOrFail($selectedPeriodId);
 
-        $allKapzList = KapzProfile::with('user')->orderBy('full_name')->get();
+        $allKapzList = KapzProfile::visibleTo($user)->with('user')->orderBy('full_name')->get();
 
         if ($isExpertOrAdmin) {
             $selectedKapzId = $request->input('kapz_id', $allKapzList->first()?->id);
-            $kapz = KapzProfile::find($selectedKapzId) ?? $allKapzList->first();
+            $kapz = $allKapzList->firstWhere('id', (int) $selectedKapzId) ?? $allKapzList->first();
+            $selectedKapzId = $kapz?->id;
         } else {
             $kapz = $user->kapzProfile;
             $selectedKapzId = $kapz?->id;
@@ -122,6 +123,7 @@ class StatementController extends Controller
 
     public function save(Request $request, OutsideActivityDeclaration $declaration)
     {
+        $this->authorizeKapzAccess($declaration->kapz_id);
         $itemsData = $request->input('items', []);
 
         foreach ($itemsData as $itemId => $data) {
@@ -151,6 +153,7 @@ class StatementController extends Controller
 
     public function quickFillAllNo(Request $request, OutsideActivityDeclaration $declaration)
     {
+        $this->authorizeKapzAccess($declaration->kapz_id);
         $lastDayOfMonth = Carbon::create($declaration->reportingPeriod->year, $declaration->reportingPeriod->month, 1)->endOfMonth()->format('Y-m-d');
 
         $declaration->items()->update([
@@ -171,6 +174,7 @@ class StatementController extends Controller
 
     public function downloadPdf(OutsideActivityDeclaration $declaration, PdfGeneratorService $pdfGenerator)
     {
+        $this->authorizeKapzAccess($declaration->kapz_id);
         $declaration->load(['kapz', 'reportingPeriod', 'items']);
         $pdf = $pdfGenerator->generateOutsideActivityDeclarationPdf($declaration);
         
