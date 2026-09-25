@@ -1,0 +1,27 @@
+# Render Blueprint – https://render.com/docs/blueprint-spec
+# Webová služba z Dockerfile. Databáza SQLite je v kontajneri: na free pláne sa
+# pri každom novom nasadení alebo reštarte vytvorí znova (SEED_DEMO nahrá testovacie dáta).
+services:
+  - type: web
+    name: kapz-appka
+    runtime: docker
+    plan: free
+    branch: main
+    healthCheckPath: /up
+    envVars:
+      - key: APP_KEY
+        sync: false          # zadajte ručne: výstup príkazu `php artisan key:generate --show`
+      - key: APP_URL
+        sync: false          # napr. https://kapz-appka.onrender.com
+      - key: APP_NAME
+        value: KAPZ CMS
+      - key: APP_LOCALE
+        value: sk
+      - key: SEED_DEMO
+        value: "true"
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: sync

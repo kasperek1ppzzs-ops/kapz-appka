@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Render (a iné hostingy) ukončujú HTTPS na proxy – bez tohto by formuláre a odkazy smerovali na http://.
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,
         ]);
